@@ -1,0 +1,42 @@
+app:
+  name: "AI PC Repair & Optimizer"
+  version: "0.1.0"
+  language: "ru"  # ru | en
+  expert_mode: false
+  web_host: "127.0.0.1"
+  web_port: 8080
+
+paths:
+  backup_dir: "/mnt/usb_data/backups"
+  journal_db: "/mnt/usb_data/journal.db"
+  telemetry_db: "/mnt/usb_data/telemetry.db"
+  models_dir: "/mnt/usb_data/models"
+  clamav_db: "/mnt/usb_data/clamav"
+  knowledge_dir: "/mnt/usb_data/knowledge"
+  logs_dir: "/mnt/usb_data/logs"
+
+ai:
+  backend: "llama"  # llama | openrouter | none
+  temperature: 0.3
+  max_tokens: 2048
+  context_size: 4096
+
+openrouter:
+  api_key: ""
+  base_url: "https://openrouter.ai/api/v1"
+  default_model: "meta-llama/llama-3-8b-instruct"
+  fallback_models:
+    - "google/gemma-2-9b-it"
+    - "mistralai/mistral-7b-instruct"
+
+network:
+  enabled: false
+  allow_ai_requests: false
+  update_clamav: true
+  cache_responses: true
+  anonymous_telemetry: false
+
+safety:
+  require_confirmation: true
+  max_risk_level: "yellow"  # green | yellow | red (black always blocked)
+  auto_backup: true

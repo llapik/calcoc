@@ -1,0 +1,48 @@
+models:
+  # Tier 0: No AI (< 2 GB RAM)
+  - name: "none"
+    min_ram_mb: 0
+    max_ram_mb: 2048
+    description: "AI отключён — только правила и скрипты"
+    file: null
+
+  # Tier 1: Minimal (2-4 GB RAM)
+  - name: "smollm-135m"
+    min_ram_mb: 2048
+    max_ram_mb: 4096
+    description: "SmolLM 135M — базовые подсказки"
+    file: "smollm-135m-instruct.Q4_K_M.gguf"
+    context_size: 2048
+    gpu_layers: 0
+
+  # Tier 2: Light (4-8 GB RAM)
+  - name: "phi-3-mini"
+    min_ram_mb: 4096
+    max_ram_mb: 8192
+    description: "Phi-3 Mini 3.8B — диагностика и советы"
+    file: "phi-3-mini-4k-instruct.Q4_K_M.gguf"
+    context_size: 4096
+    gpu_layers: 0
+
+  # Tier 3: Standard (8-16 GB RAM)
+  - name: "llama-3-8b"
+    min_ram_mb: 8192
+    max_ram_mb: 16384
+    description: "LLaMA 3 8B — полная функциональность"
+    file: "meta-llama-3-8b-instruct.Q4_K_M.gguf"
+    context_size: 4096
+    gpu_layers: 0
+
+  # Tier 4: Full (16+ GB RAM) — GPU offload if available
+  - name: "llama-3-8b-full"
+    min_ram_mb: 16384
+    max_ram_mb: 999999
+    description: "LLaMA 3 8B Q6 — максимальное качество"
+    file: "meta-llama-3-8b-instruct.Q6_K.gguf"
+    context_size: 8192
+    gpu_layers: 99  # auto-detect
+
+selection:
+  strategy: "auto"  # auto | manual
+  prefer_gpu: true
+  memory_reserve_mb: 512  # keep free for system
