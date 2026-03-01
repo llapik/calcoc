@@ -1,0 +1,29 @@
+{
+  "ram": {
+    "DDR3": [
+      {"name": "8 GB DDR3 1600MHz", "price_rub": 1500, "note": "Б/у, для старых систем"},
+      {"name": "16 GB (2x8) DDR3 1600MHz", "price_rub": 3000, "note": "Максимальный апгрейд DDR3"}
+    ],
+    "DDR4": [
+      {"name": "8 GB DDR4 3200MHz", "price_rub": 1800, "note": "Базовый апгрейд"},
+      {"name": "16 GB DDR4 3200MHz", "price_rub": 3000, "note": "Оптимальный объём"},
+      {"name": "32 GB (2x16) DDR4 3200MHz", "price_rub": 5500, "note": "Для профессиональных задач"}
+    ],
+    "DDR5": [
+      {"name": "16 GB DDR5 5600MHz", "price_rub": 4000, "note": "Базовый DDR5"},
+      {"name": "32 GB (2x16) DDR5 5600MHz", "price_rub": 7500, "note": "Рекомендуемый"}
+    ]
+  },
+  "ssd": {
+    "SATA": [
+      {"name": "SSD 240 GB SATA", "price_rub": 2000, "note": "Минимальный для ОС"},
+      {"name": "SSD 480 GB SATA", "price_rub": 3000, "note": "Оптимальный"},
+      {"name": "SSD 1 TB SATA", "price_rub": 5500, "note": "Для замены HDD с данными"}
+    ],
+    "NVMe": [
+      {"name": "NVMe 256 GB", "price_rub": 2500, "note": "Если есть M.2 слот"},
+      {"name": "NVMe 512 GB", "price_rub": 3500, "note": "Оптимальный NVMe"},
+      {"name": "NVMe 1 TB", "price_rub": 6000, "note": "Для всех задач"}
+    ]
+  }
+}

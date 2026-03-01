@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="{{ language }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="logo">🔧 {{ app_name }}</h1>
+                <span class="badge" id="ai-badge">AI: {{ ai_backend }}</span>
+                {% if expert_mode %}
+                <span class="badge badge-red">ЭКСПЕРТ</span>
+                {% endif %}
+            </div>
+            <div class="header-right">
+                <select id="lang-select" onchange="setLanguage(this.value)">
+                    <option value="ru" {% if language == 'ru' %}selected{% endif %}>Русский</option>
+                    <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
+                </select>
+                <button class="btn btn-sm" onclick="openSettings()">⚙️</button>
+            </div>
+        </header>
+
+        <!-- Main layout -->
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav>
+                    <button class="nav-btn active" onclick="showPanel('chat')" id="nav-chat">
+                        💬 Чат с AI
+                    </button>
+                    <button class="nav-btn" onclick="showPanel('diagnostics')" id="nav-diagnostics">
+                        🔍 Диагностика
+                    </button>
+                    <button class="nav-btn" onclick="showPanel('problems')" id="nav-problems">
+                        ⚠️ Проблемы
+                    </button>
+                    <button class="nav-btn" onclick="showPanel('upgrade')" id="nav-upgrade">
+                        📈 Апгрейд
+                    </button>
+                    <button class="nav-btn" onclick="showPanel('history')" id="nav-history">
+                        📋 Журнал
+                    </button>
+                </nav>
+
+                <div class="sidebar-actions">
+                    <button class="btn btn-primary btn-full" onclick="runScan()">
+                        🔍 Полная диагностика
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Content area -->
+            <main class="content">
+                <!-- Chat panel -->
+                <div class="panel active" id="panel-chat">
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chat-messages">
+                            <div class="message message-system">
+                                Добро пожаловать в AI PC Repair & Optimizer!
+                                Я помогу вам диагностировать и решить проблемы с ПК.
+                                Начните с команды /scan для диагностики или задайте вопрос.
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <div class="chat-suggestions">
+                                <button class="suggestion" onclick="sendMessage('/scan')">🔍 Диагностика</button>
+                                <button class="suggestion" onclick="sendMessage('/upgrade')">📈 Апгрейд</button>
+                                <button class="suggestion" onclick="sendMessage('Какие проблемы найдены?')">⚠️ Проблемы</button>
+                                <button class="suggestion" onclick="sendMessage('Как ускорить компьютер?')">🚀 Оптимизация</button>
+                            </div>
+                            <form class="chat-form" onsubmit="handleSubmit(event)">
+                                <input type="text" id="chat-input" placeholder="Введите сообщение или команду..."
+                                       autocomplete="off" autofocus>
+                                <button type="submit" class="btn btn-primary">Отправить</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Diagnostics panel -->
+                <div class="panel" id="panel-diagnostics">
+                    <h2>Диагностика системы</h2>
+                    <div id="diag-results" class="results-area">
+                        <p class="placeholder">Нажмите "Полная диагностика" для начала сканирования.</p>
+                    </div>
+                </div>
+
+                <!-- Problems panel -->
+                <div class="panel" id="panel-problems">
+                    <h2>Обнаруженные проблемы</h2>
+                    <div id="problems-results" class="results-area">
+                        <p class="placeholder">Сначала выполните диагностику.</p>
+                    </div>
+                </div>
+
+                <!-- Upgrade panel -->
+                <div class="panel" id="panel-upgrade">
+                    <h2>Рекомендации по апгрейду</h2>
+                    <div id="upgrade-results" class="results-area">
+                        <p class="placeholder">Сначала выполните диагностику.</p>
+                    </div>
+                </div>
+
+                <!-- History panel -->
+                <div class="panel" id="panel-history">
+                    <h2>Журнал операций</h2>
+                    <div id="history-results" class="results-area">
+                        <p class="placeholder">Журнал операций пуст.</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Settings modal -->
+        <div class="modal" id="settings-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Настройки</h3>
+                    <button class="btn-close" onclick="closeSettings()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label>AI-бэкенд:</label>
+                        <select id="setting-backend" onchange="updateSetting('ai_backend', this.value)">
+                            <option value="llama">Локальный (llama.cpp)</option>
+                            <option value="openrouter">OpenRouter (облако)</option>
+                            <option value="none">Отключён</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>
+                            <input type="checkbox" id="setting-expert" onchange="updateSetting('expert_mode', this.checked)">
+                            Режим эксперта
+                        </label>
+                        <p class="setting-hint">Разблокирует опасные операции (красный/чёрный уровень)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading overlay -->
+        <div class="loading-overlay" id="loading" style="display:none">
+            <div class="spinner"></div>
+            <p id="loading-text">Загрузка...</p>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

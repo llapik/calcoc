@@ -1,0 +1,102 @@
+risk_levels:
+  green:
+    label: "Безопасно"
+    label_en: "Safe"
+    description: "Действие не изменяет данные, только чтение"
+    requires_confirmation: false
+    auto_backup: false
+
+  yellow:
+    label: "Умеренный риск"
+    label_en: "Moderate Risk"
+    description: "Действие изменяет данные, но обратимо"
+    requires_confirmation: true
+    auto_backup: true
+
+  red:
+    label: "Высокий риск"
+    label_en: "High Risk"
+    description: "Действие может привести к потере данных при ошибке"
+    requires_confirmation: true
+    auto_backup: true
+    expert_only: false
+
+  black:
+    label: "Запрещено"
+    label_en: "Forbidden"
+    description: "Действие слишком опасно без специальной подготовки"
+    requires_confirmation: true
+    auto_backup: true
+    expert_only: true
+
+actions:
+  # Diagnostics — all green
+  read_smart:
+    risk: green
+    description: "Чтение S.M.A.R.T. данных диска"
+
+  read_logs:
+    risk: green
+    description: "Чтение системных логов"
+
+  scan_hardware:
+    risk: green
+    description: "Сбор информации об оборудовании"
+
+  scan_malware:
+    risk: green
+    description: "Проверка на вредоносное ПО (только чтение)"
+
+  benchmark_cpu:
+    risk: green
+    description: "Тест производительности CPU"
+
+  benchmark_memory:
+    risk: green
+    description: "Тест производительности ОЗУ"
+
+  # Repair — yellow
+  fix_filesystem:
+    risk: yellow
+    description: "Исправление ошибок файловой системы"
+
+  clean_temp_files:
+    risk: yellow
+    description: "Удаление временных файлов"
+
+  fix_registry_errors:
+    risk: yellow
+    description: "Исправление ошибок реестра Windows"
+
+  remove_malware:
+    risk: yellow
+    description: "Удаление обнаруженных вирусов"
+
+  # Bootloader & Partition — red
+  fix_bootloader:
+    risk: red
+    description: "Восстановление загрузчика ОС"
+
+  resize_partition:
+    risk: red
+    description: "Изменение размера раздела"
+
+  restore_mbr:
+    risk: red
+    description: "Восстановление MBR/GPT"
+
+  # Dangerous — black (expert only)
+  flash_bios:
+    risk: black
+    description: "Перепрошивка BIOS/UEFI"
+    blocked_reason: "Перепрошивка BIOS без резервирования может привести к неработоспособности ПК"
+
+  wipe_disk:
+    risk: black
+    description: "Полное стирание диска"
+    blocked_reason: "Безвозвратное удаление всех данных"
+
+  modify_firmware:
+    risk: black
+    description: "Изменение прошивки устройств"
+    blocked_reason: "Может привести к выходу оборудования из строя"
