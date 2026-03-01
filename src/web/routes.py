@@ -1,7 +1,6 @@
 """Flask API routes and web endpoints."""
 
 import json
-import time
 import uuid
 
 from flask import Flask, request, jsonify, render_template, Response, stream_with_context
@@ -22,8 +21,8 @@ log = get_logger("web.routes")
 def register_routes(app: Flask) -> None:
     """Register all routes on the Flask app."""
 
-    # State shared across requests
-    state = {
+    # In-memory session state (single-user local app)
+    state: dict = {
         "snapshot": None,
         "problems": None,
         "session_id": str(uuid.uuid4())[:8],
@@ -55,14 +54,19 @@ def register_routes(app: Flask) -> None:
     @app.route("/api/scan", methods=["POST"])
     def api_scan():
         """Run full system diagnostic scan."""
-        collector = SystemCollector()
-        snapshot = collector.collect_all()
-        state["snapshot"] = snapshot
-        return jsonify({
-            "status": "ok",
-            "summary": snapshot.summary_text(),
-            "data": snapshot.to_dict(),
-        })
+        try:
+            collector = SystemCollector()
+            snapshot = collector.collect_all()
+            state["snapshot"] = snapshot
+            state["problems"] = None  # invalidate stale problem cache
+            return jsonify({
+                "status": "ok",
+                "summary": snapshot.summary_text(),
+                "data": snapshot.to_dict(),
+            })
+        except Exception as exc:
+            log.error("Scan failed: %s", exc)
+            return jsonify({"status": "error", "message": f"Ошибка диагностики: {exc}"}), 500
 
     @app.route("/api/problems", methods=["POST"])
     def api_problems():
@@ -70,24 +74,28 @@ def register_routes(app: Flask) -> None:
         if state["snapshot"] is None:
             return jsonify({"status": "error", "message": "Сначала выполните диагностику (/scan)"}), 400
 
-        problems = analyze_all(state["snapshot"])
-        state["problems"] = problems
-        return jsonify({
-            "status": "ok",
-            "summary": problems.summary,
-            "problems": [
-                {
-                    "id": p.id,
-                    "title": p.title,
-                    "description": p.description,
-                    "severity": p.severity.value,
-                    "category": p.category,
-                    "auto_fixable": p.auto_fixable,
-                    "fix_action": p.fix_action,
-                }
-                for p in problems.problems
-            ],
-        })
+        try:
+            problems = analyze_all(state["snapshot"])
+            state["problems"] = problems
+            return jsonify({
+                "status": "ok",
+                "summary": problems.summary,
+                "problems": [
+                    {
+                        "id": p.id,
+                        "title": p.title,
+                        "description": p.description,
+                        "severity": p.severity.value,
+                        "category": p.category,
+                        "auto_fixable": p.auto_fixable,
+                        "fix_action": p.fix_action,
+                    }
+                    for p in problems.problems
+                ],
+            })
+        except Exception as exc:
+            log.error("Problem analysis failed: %s", exc)
+            return jsonify({"status": "error", "message": f"Ошибка анализа: {exc}"}), 500
 
     @app.route("/api/performance", methods=["POST"])
     def api_performance():
@@ -95,21 +103,25 @@ def register_routes(app: Flask) -> None:
         if state["snapshot"] is None:
             return jsonify({"status": "error", "message": "Сначала выполните диагностику (/scan)"}), 400
 
-        report = analyze_performance(state["snapshot"])
-        return jsonify({
-            "status": "ok",
-            "score": report.score,
-            "summary": report.summary,
-            "bottlenecks": [
-                {
-                    "component": b.component,
-                    "severity": b.severity,
-                    "description": b.description,
-                    "recommendation": b.recommendation,
-                }
-                for b in report.bottlenecks
-            ],
-        })
+        try:
+            report = analyze_performance(state["snapshot"])
+            return jsonify({
+                "status": "ok",
+                "score": report.score,
+                "summary": report.summary,
+                "bottlenecks": [
+                    {
+                        "component": b.component,
+                        "severity": b.severity,
+                        "description": b.description,
+                        "recommendation": b.recommendation,
+                    }
+                    for b in report.bottlenecks
+                ],
+            })
+        except Exception as exc:
+            log.error("Performance analysis failed: %s", exc)
+            return jsonify({"status": "error", "message": f"Ошибка: {exc}"}), 500
 
     @app.route("/api/upgrade", methods=["POST"])
     def api_upgrade():
@@ -117,44 +129,42 @@ def register_routes(app: Flask) -> None:
         if state["snapshot"] is None:
             return jsonify({"status": "error", "message": "Сначала выполните диагностику (/scan)"}), 400
 
-        report = analyze_upgrade(state["snapshot"])
-        return jsonify({
-            "status": "ok",
-            "text": report.to_text(),
-            "bottlenecks": report.bottlenecks,
-            "recommendations": [
-                {
-                    "component": r.component,
-                    "priority": r.priority,
-                    "current": r.current,
-                    "recommended": r.recommended,
-                    "reason": r.reason,
-                    "expected_impact": r.expected_impact,
-                    "estimated_cost": r.estimated_cost,
-                }
-                for r in report.recommendations
-            ],
-        })
+        try:
+            report = analyze_upgrade(state["snapshot"])
+            return jsonify({
+                "status": "ok",
+                "text": report.to_text(),
+                "bottlenecks": report.bottlenecks,
+                "recommendations": [
+                    {
+                        "component": r.component,
+                        "priority": r.priority,
+                        "current": r.current,
+                        "recommended": r.recommended,
+                        "reason": r.reason,
+                        "expected_impact": r.expected_impact,
+                        "estimated_cost": r.estimated_cost,
+                    }
+                    for r in report.recommendations
+                ],
+            })
+        except Exception as exc:
+            log.error("Upgrade analysis failed: %s", exc)
+            return jsonify({"status": "error", "message": f"Ошибка: {exc}"}), 500
 
     # ------------------------------------------------------------------
     # API: AI Chat
     # ------------------------------------------------------------------
     @app.route("/api/chat", methods=["POST"])
     def api_chat():
-        """Send a message to the AI assistant."""
+        """Send a message to the AI assistant (blocking)."""
         data = request.get_json()
         if not data or "message" not in data:
             return jsonify({"status": "error", "message": "Сообщение не указано"}), 400
 
         message = data["message"]
         engine = _engine()
-
-        # Build context from current scan
-        context = ""
-        if state["snapshot"]:
-            system_info = state["snapshot"].summary_text()
-            problems_text = state["problems"].summary if state["problems"] else ""
-            context = build_context_message(system_info, problems_text, "")
+        context = _build_context(state)
 
         try:
             response = engine.chat(message, context=context)
@@ -172,12 +182,7 @@ def register_routes(app: Flask) -> None:
 
         message = data["message"]
         engine = _engine()
-
-        context = ""
-        if state["snapshot"]:
-            system_info = state["snapshot"].summary_text()
-            problems_text = state["problems"].summary if state["problems"] else ""
-            context = build_context_message(system_info, problems_text, "")
+        context = _build_context(state)
 
         def generate():
             try:
@@ -185,6 +190,7 @@ def register_routes(app: Flask) -> None:
                     yield f"data: {json.dumps({'token': token})}\n\n"
                 yield f"data: {json.dumps({'done': True})}\n\n"
             except Exception as exc:
+                log.error("Stream error: %s", exc)
                 yield f"data: {json.dumps({'error': str(exc)})}\n\n"
 
         return Response(
@@ -219,21 +225,22 @@ def register_routes(app: Flask) -> None:
         })
 
     # ------------------------------------------------------------------
-    # API: Settings
+    # API: Settings — two separate functions, same URL, different methods
     # ------------------------------------------------------------------
     @app.route("/api/settings", methods=["GET"])
-    def api_settings():
+    def api_settings_get():
         config = _config()
+        engine = _engine()
         return jsonify({
             "language": config.language,
             "expert_mode": config.expert_mode,
             "ai_backend": config.ai_backend,
-            "ai_model": _engine().model_name,
-            "ai_available": _engine().is_available,
+            "ai_model": engine.model_name,
+            "ai_available": engine.is_available,
         })
 
     @app.route("/api/settings", methods=["POST"])
-    def api_update_settings():
+    def api_settings_post():
         data = request.get_json() or {}
         config = _config()
         engine = _engine()
@@ -248,7 +255,7 @@ def register_routes(app: Flask) -> None:
         return jsonify({"status": "ok"})
 
     # ------------------------------------------------------------------
-    # API: System info
+    # API: Status
     # ------------------------------------------------------------------
     @app.route("/api/status", methods=["GET"])
     def api_status():
@@ -262,3 +269,15 @@ def register_routes(app: Flask) -> None:
             "ai_model": engine.model_name,
             "ai_available": engine.is_available,
         })
+
+
+# ------------------------------------------------------------------
+# Helpers (module-level, not closures)
+# ------------------------------------------------------------------
+def _build_context(state: dict) -> str:
+    """Build AI context string from current session state."""
+    if state["snapshot"] is None:
+        return ""
+    system_info = state["snapshot"].summary_text()
+    problems_text = state["problems"].summary if state["problems"] else ""
+    return build_context_message(system_info, problems_text, "")

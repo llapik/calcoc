@@ -1,7 +1,7 @@
 """Main application entry-point for AI PC Repair & Optimizer."""
 
 import argparse
-import sys
+from pathlib import Path
 
 from flask import Flask
 
@@ -10,6 +10,7 @@ from src.core.logger import setup_logging, get_logger
 from src.web.routes import register_routes
 from src.ai.engine import AIEngine
 
+_SRC_DIR = Path(__file__).resolve().parent.parent
 
 log = get_logger("app")
 
@@ -23,12 +24,8 @@ def create_app(config: Config | None = None) -> Flask:
 
     app = Flask(
         __name__,
-        template_folder=str(
-            __import__("pathlib").Path(__file__).resolve().parent.parent / "web" / "templates"
-        ),
-        static_folder=str(
-            __import__("pathlib").Path(__file__).resolve().parent.parent / "web" / "static"
-        ),
+        template_folder=str(_SRC_DIR / "web" / "templates"),
+        static_folder=str(_SRC_DIR / "web" / "static"),
     )
     app.config["SECRET_KEY"] = "calcoc-local-only"
     app.config["CALCOC_CONFIG"] = config

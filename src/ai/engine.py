@@ -13,6 +13,9 @@ from src.ai.prompts import get_system_prompt
 
 log = get_logger("ai.engine")
 
+_DEFAULT_TEMP = 0.3
+_DEFAULT_TOKENS = 2048
+
 
 class AIEngine:
     """High-level AI interface that delegates to the appropriate backend.
@@ -113,6 +116,15 @@ class AIEngine:
         self.ensure_ready()
         return self._backend != "none"
 
+    def _resolve_params(
+        self, temperature: float | None, max_tokens: int | None
+    ) -> tuple[float, int]:
+        """Return temperature and max_tokens, using config defaults only when None."""
+        ai_cfg = self.config.settings.get("ai", {})
+        temp = temperature if temperature is not None else ai_cfg.get("temperature", _DEFAULT_TEMP)
+        tokens = max_tokens if max_tokens is not None else ai_cfg.get("max_tokens", _DEFAULT_TOKENS)
+        return float(temp), int(tokens)
+
     def chat(
         self,
         message: str,
@@ -123,14 +135,10 @@ class AIEngine:
         """Generate a response to a user message."""
         self.ensure_ready()
 
-        temp = temperature or self.config.settings.get("ai", {}).get("temperature", 0.3)
-        tokens = max_tokens or self.config.settings.get("ai", {}).get("max_tokens", 2048)
+        temp, tokens = self._resolve_params(temperature, max_tokens)
         system_prompt = get_system_prompt(self.config.language)
 
-        # Enrich with RAG context
-        prompt = message
-        if context:
-            prompt = f"{context}\n\n{message}"
+        prompt = f"{context}\n\n{message}" if context else message
         prompt = self._enrich_with_knowledge(prompt)
 
         if self._backend == "openrouter" and self._openrouter:
@@ -140,15 +148,14 @@ class AIEngine:
                 temperature=temp,
                 max_tokens=tokens,
             )
-        elif self._backend == "llama" and self._llama:
+        if self._backend == "llama" and self._llama:
             return self._llama.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 temperature=temp,
                 max_tokens=tokens,
             )
-        else:
-            return self._rule_based_response(message)
+        return self._rule_based_response(message)
 
     def chat_stream(
         self,
@@ -160,13 +167,10 @@ class AIEngine:
         """Stream a response token by token."""
         self.ensure_ready()
 
-        temp = temperature or self.config.settings.get("ai", {}).get("temperature", 0.3)
-        tokens = max_tokens or self.config.settings.get("ai", {}).get("max_tokens", 2048)
+        temp, tokens = self._resolve_params(temperature, max_tokens)
         system_prompt = get_system_prompt(self.config.language)
 
-        prompt = message
-        if context:
-            prompt = f"{context}\n\n{message}"
+        prompt = f"{context}\n\n{message}" if context else message
         prompt = self._enrich_with_knowledge(prompt)
 
         if self._backend == "openrouter" and self._openrouter:
@@ -198,7 +202,7 @@ class AIEngine:
     # Helpers
     # ------------------------------------------------------------------
     def _enrich_with_knowledge(self, prompt: str) -> str:
-        """Add relevant knowledge base documents to the prompt."""
+        """Prepend relevant knowledge base documents to the prompt."""
         if not self._knowledge:
             return prompt
 
@@ -206,16 +210,13 @@ class AIEngine:
         if not docs:
             return prompt
 
-        context_parts = []
-        for doc in docs:
-            title = doc.get("title", "")
-            content = doc.get("content", "")
-            if title or content:
-                context_parts.append(f"[{title}] {content}")
-
+        context_parts = [
+            f"[{doc.get('title', '')}] {doc.get('content', '')}"
+            for doc in docs
+            if doc.get("title") or doc.get("content")
+        ]
         if context_parts:
-            knowledge_text = "\n".join(context_parts)
-            return f"Релевантная информация из базы знаний:\n{knowledge_text}\n\n{prompt}"
+            return f"Релевантная информация из базы знаний:\n{chr(10).join(context_parts)}\n\n{prompt}"
         return prompt
 
     @staticmethod
@@ -224,18 +225,18 @@ class AIEngine:
         msg_lower = message.lower()
         if any(w in msg_lower for w in ["диагностик", "скан", "проверк", "scan", "diagnos"]):
             return (
-                "AI-модель не загружена. Для запуска диагностики используйте команду /scan. "
-                "Результаты будут показаны в виде таблицы без AI-анализа."
+                "AI-модель не загружена. Для запуска диагностики нажмите кнопку "
+                "«Полная диагностика» или введите /scan. "
+                "Результаты будут показаны без AI-анализа."
             )
         if any(w in msg_lower for w in ["апгрейд", "upgrade", "улучш"]):
             return (
-                "AI-модель не загружена. Информация о системе доступна через /scan. "
-                "Для получения рекомендаций по апгрейду подключитесь к интернету и "
-                "включите OpenRouter в настройках."
+                "AI-модель не загружена. После диагностики (/scan) перейдите на вкладку «Апгрейд». "
+                "Для AI-рекомендаций настройте OpenRouter в ⚙️ Настройках."
             )
         return (
-            "AI-модель не загружена из-за ограниченных ресурсов. "
-            "Доступны только базовые функции: диагностика (/scan), "
-            "исправление проблем (/fix), проверка на вирусы (/malware_scan). "
-            "Для AI-анализа настройте OpenRouter или запустите на ПК с ≥4 ГБ ОЗУ."
+            "AI-модель не загружена (недостаточно ресурсов или модель не найдена). "
+            "Доступны базовые функции: диагностика (/scan), анализ проблем, рекомендации по апгрейду. "
+            "Для AI-анализа: подключитесь к интернету и включите OpenRouter в ⚙️ Настройках, "
+            "или запустите на ПК с ≥4 ГБ ОЗУ и скопируйте GGUF-модель в папку models/."
         )
