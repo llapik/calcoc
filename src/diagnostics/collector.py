@@ -1,5 +1,7 @@
 """Unified system information collector — aggregates all diagnostics."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, asdict
 from typing import Any
 

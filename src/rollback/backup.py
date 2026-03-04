@@ -31,10 +31,14 @@ class BackupManager:
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self.journal = journal
 
+    # ------------------------------------------------------------------
+    # Public backup methods
+    # ------------------------------------------------------------------
     def backup_file(self, source: str, session_id: str = "") -> BackupInfo:
         """Backup a single file."""
         backup = self._make_backup_info(source, "file")
-        os.makedirs(os.path.dirname(backup.backup_path), exist_ok=True)
+        # Ensure the parent directory of the backup path exists
+        Path(backup.backup_path).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, backup.backup_path)
         backup.size_bytes = os.path.getsize(backup.backup_path)
 
@@ -42,20 +46,21 @@ class BackupManager:
             action="backup_file",
             target=source,
             backup_path=backup.backup_path,
-            rollback_cmd=f"cp '{backup.backup_path}' '{source}'",
+            rollback_cmd=f"cp -p '{backup.backup_path}' '{source}'",
             session_id=session_id,
         )
         log.info("File backed up: %s -> %s", source, backup.backup_path)
         return backup
 
     def backup_directory(self, source: str, session_id: str = "") -> BackupInfo:
-        """Backup an entire directory (as tarball)."""
+        """Backup an entire directory as a .tar.gz archive."""
         backup = self._make_backup_info(source, "directory")
         backup.backup_path += ".tar.gz"
-        os.makedirs(os.path.dirname(backup.backup_path), exist_ok=True)
+        Path(backup.backup_path).parent.mkdir(parents=True, exist_ok=True)
 
         subprocess.check_call(
-            ["tar", "czf", backup.backup_path, "-C", os.path.dirname(source), os.path.basename(source)],
+            ["tar", "czf", backup.backup_path, "-C",
+             os.path.dirname(os.path.abspath(source)), os.path.basename(source)],
             timeout=600,
         )
         backup.size_bytes = os.path.getsize(backup.backup_path)
@@ -64,7 +69,10 @@ class BackupManager:
             action="backup_directory",
             target=source,
             backup_path=backup.backup_path,
-            rollback_cmd=f"tar xzf '{backup.backup_path}' -C '{os.path.dirname(source)}'",
+            rollback_cmd=(
+                f"tar xzf '{backup.backup_path}' "
+                f"-C '{os.path.dirname(os.path.abspath(source))}'"
+            ),
             session_id=session_id,
         )
         log.info("Directory backed up: %s -> %s", source, backup.backup_path)
@@ -74,7 +82,7 @@ class BackupManager:
         """Backup MBR (first 512 bytes) of a block device."""
         backup = self._make_backup_info(device, "mbr")
         backup.backup_path += ".mbr"
-        os.makedirs(os.path.dirname(backup.backup_path), exist_ok=True)
+        Path(backup.backup_path).parent.mkdir(parents=True, exist_ok=True)
 
         subprocess.check_call(
             ["dd", f"if={device}", f"of={backup.backup_path}", "bs=512", "count=1"],
@@ -87,6 +95,7 @@ class BackupManager:
             target=device,
             risk_level="red",
             backup_path=backup.backup_path,
+            # Restore only the bootstrap code (446 bytes), preserving the partition table
             rollback_cmd=f"dd if='{backup.backup_path}' of='{device}' bs=446 count=1",
             session_id=session_id,
         )
@@ -97,7 +106,7 @@ class BackupManager:
         """Backup partition table using sfdisk."""
         backup = self._make_backup_info(device, "partition_table")
         backup.backup_path += ".sfdisk"
-        os.makedirs(os.path.dirname(backup.backup_path), exist_ok=True)
+        Path(backup.backup_path).parent.mkdir(parents=True, exist_ok=True)
 
         with open(backup.backup_path, "w") as fh:
             subprocess.check_call(
@@ -117,17 +126,17 @@ class BackupManager:
         log.info("Partition table backed up: %s -> %s", device, backup.backup_path)
         return backup
 
+    # ------------------------------------------------------------------
+    # Restore / Rollback
+    # ------------------------------------------------------------------
     def restore(self, backup_path: str) -> bool:
-        """Restore from a backup using the journal's recorded rollback command."""
-        # Find the journal entry for this backup
-        entries = self.journal.get_rollbackable()
-        for entry in entries:
+        """Execute the rollback command stored in the journal for this backup."""
+        for entry in self.journal.get_rollbackable():
             if entry.backup_path == backup_path:
-                log.info("Rolling back entry #%d: %s", entry.id, entry.action)
+                log.info("Rolling back journal entry #%d: %s", entry.id, entry.action)
                 try:
                     subprocess.check_call(
-                        entry.rollback_cmd,
-                        shell=True, timeout=600,
+                        entry.rollback_cmd, shell=True, timeout=600,
                     )
                     self.journal.update_status(entry.id, "rolled_back")
                     log.info("Rollback successful for entry #%d", entry.id)
@@ -141,12 +150,12 @@ class BackupManager:
         return False
 
     def rollback_last(self, session_id: str = "") -> bool:
-        """Roll back the most recent operation (optionally within a session)."""
-        if session_id:
-            entries = self.journal.get_session_entries(session_id)
-        else:
-            entries = self.journal.get_rollbackable()
-
+        """Roll back the most recent completed operation (optionally within a session)."""
+        entries = (
+            self.journal.get_session_entries(session_id)
+            if session_id
+            else self.journal.get_rollbackable()
+        )
         for entry in entries:
             if entry.status == "completed" and entry.backup_path:
                 return self.restore(entry.backup_path)
@@ -154,9 +163,12 @@ class BackupManager:
         log.warning("No rollbackable entries found")
         return False
 
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
     def _make_backup_info(self, source: str, backup_type: str) -> BackupInfo:
         ts = time.time()
-        safe_name = source.replace("/", "_").strip("_")
+        safe_name = source.replace("/", "_").strip("_")[:120]
         backup_id = f"{int(ts)}_{safe_name}"
         backup_path = str(self.backup_dir / backup_id)
         return BackupInfo(
