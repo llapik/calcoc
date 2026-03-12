@@ -122,6 +122,16 @@ class Journal:
             ).fetchall()
             return [self._row_to_entry(r) for r in rows]
 
+    def get_entry_by_backup_path(self, backup_path: str) -> JournalEntry | None:
+        """Find the most recent completed entry with the given backup_path."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM journal WHERE backup_path = ? AND status = 'completed' "
+                "ORDER BY id DESC LIMIT 1",
+                (backup_path,),
+            ).fetchone()
+            return self._row_to_entry(row) if row else None
+
     @staticmethod
     def _row_to_entry(row) -> JournalEntry:
         return JournalEntry(

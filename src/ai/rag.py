@@ -14,6 +14,7 @@ class KnowledgeBase:
     def __init__(self, knowledge_dir: str | Path):
         self.knowledge_dir = Path(knowledge_dir)
         self._documents: list[dict] = []
+        self._texts: list[str] = []  # precomputed lowercase searchable text per document
         self._collection = None
         self._load_documents()
         self._try_init_chromadb()
@@ -36,6 +37,12 @@ class KnowledgeBase:
                 log.warning("Failed to load %s: %s", path, exc)
 
         log.info("Loaded %d knowledge documents", len(self._documents))
+        self._texts = [
+            " ".join(filter(None, [
+                d.get("content", ""), d.get("title", ""), d.get("description", ""),
+            ])).lower()
+            for d in self._documents
+        ]
 
     def _try_init_chromadb(self) -> None:
         """Try to initialize ChromaDB for semantic search."""
@@ -101,12 +108,7 @@ class KnowledgeBase:
         """Simple keyword-based search as fallback."""
         query_words = set(query.lower().split())
         scored = []
-        for doc in self._documents:
-            text = (
-                doc.get("content", "") + " "
-                + doc.get("title", "") + " "
-                + doc.get("description", "")
-            ).lower()
+        for doc, text in zip(self._documents, self._texts):
             score = sum(1 for w in query_words if w in text)
             if score > 0:
                 scored.append((score, doc))

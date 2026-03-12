@@ -16,6 +16,11 @@ class Severity(str, Enum):
     CRITICAL = "critical"
 
 
+_SEVERITY_ORDER: dict[Severity, int] = {
+    Severity.CRITICAL: 0, Severity.WARNING: 1, Severity.INFO: 2,
+}
+
+
 @dataclass
 class Problem:
     id: str = ""
@@ -157,7 +162,6 @@ def analyze_all(
             log.warning("Malware scan failed: %s", exc)
 
     # Sort: critical → warning → info
-    severity_order = {Severity.CRITICAL: 0, Severity.WARNING: 1, Severity.INFO: 2}
-    report.problems.sort(key=lambda p: severity_order.get(p.severity, 99))
+    report.problems.sort(key=lambda p: _SEVERITY_ORDER.get(p.severity, 99))
 
     return report

@@ -53,6 +53,12 @@ class DiskInfo:
 # Critical SMART attributes that indicate imminent failure
 _CRITICAL_ATTRS = {5, 187, 188, 196, 197, 198}
 
+# Size multipliers for _parse_size_to_mb (last character → MB factor)
+_SIZE_MULTIPLIERS: dict[str, float] = {
+    "B": 1 / (1024 * 1024), "K": 1 / 1024,
+    "M": 1.0, "G": 1024.0, "T": 1024.0 * 1024,
+}
+
 
 def collect() -> DiskInfo:
     info = DiskInfo()
@@ -148,7 +154,7 @@ def _read_partitions(disk: DiskDevice) -> None:
     """Read partition information from lsblk.
 
     Uses NAME,FSTYPE,SIZE,MOUNTPOINT only — FSUSED is unreliable on older lsblk.
-    Actual used space is read from df when the partition is mounted.
+    Actual used space is read from a single batched df call for all mounted partitions.
     """
     try:
         output = subprocess.check_output(
@@ -160,6 +166,7 @@ def _read_partitions(disk: DiskDevice) -> None:
         log.debug("lsblk partition read failed for %s: %s", disk.device, exc)
         return
 
+    parts: list[Partition] = []
     for dev in data.get("blockdevices", []):
         for child in dev.get("children", []):
             # mountpoint can be a string or list in newer lsblk
@@ -173,30 +180,40 @@ def _read_partitions(disk: DiskDevice) -> None:
                 mount_point=mountpoint,
             )
             part.size_mb = _parse_size_to_mb(child.get("size", "0"))
+            parts.append(part)
 
-            # Get used space from df if partition is mounted
-            if part.mount_point:
-                part.used_mb = _df_used_mb(part.mount_point)
-                if part.size_mb > 0:
-                    part.usage_percent = round(part.used_mb / part.size_mb * 100, 1)
+    # One df call for all mounted partitions instead of one per partition
+    mounted_points = [p.mount_point for p in parts if p.mount_point]
+    usage_map = _df_used_mb_batch(mounted_points)
 
-            disk.partitions.append(part)
+    for part in parts:
+        if part.mount_point and part.mount_point in usage_map:
+            part.used_mb = usage_map[part.mount_point]
+            if part.size_mb > 0:
+                part.usage_percent = round(part.used_mb / part.size_mb * 100, 1)
+        disk.partitions.append(part)
 
 
-def _df_used_mb(mount_point: str) -> int:
-    """Return used space in MB for a mounted filesystem via df."""
+def _df_used_mb_batch(mount_points: list[str]) -> dict[str, int]:
+    """Return used space in MB for multiple mount points via a single df call."""
+    if not mount_points:
+        return {}
     try:
         output = subprocess.check_output(
-            ["df", "-BM", "--output=used", mount_point],
+            ["df", "-BM", "--output=target,used"] + mount_points,
             text=True, timeout=10, stderr=subprocess.DEVNULL,
         )
-        # Output: header line + data line, e.g. "Used\n1234M"
-        lines = output.strip().splitlines()
-        if len(lines) >= 2:
-            return int(lines[1].rstrip("M"))
+        result: dict[str, int] = {}
+        for line in output.strip().splitlines()[1:]:  # skip header
+            cols = line.split()
+            if len(cols) >= 2:
+                try:
+                    result[cols[0]] = int(cols[1].rstrip("M"))
+                except ValueError:
+                    pass
+        return result
     except Exception:
-        pass
-    return 0
+        return {}
 
 
 def _parse_size_to_mb(s: str) -> int:
@@ -204,16 +221,12 @@ def _parse_size_to_mb(s: str) -> int:
     if not s or s == "0":
         return 0
     s = s.strip()
-    multipliers = {
-        "B": 1 / (1024 * 1024), "K": 1 / 1024,
-        "M": 1, "G": 1024, "T": 1024 * 1024,
-    }
-    for suffix, mult in multipliers.items():
-        if s.upper().endswith(suffix):
-            try:
-                return int(float(s[:-1]) * mult)
-            except ValueError:
-                return 0
+    mult = _SIZE_MULTIPLIERS.get(s[-1].upper())
+    if mult is not None:
+        try:
+            return int(float(s[:-1]) * mult)
+        except ValueError:
+            return 0
     try:
         return int(s)
     except ValueError:

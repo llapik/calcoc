@@ -92,14 +92,14 @@ def analyze(snapshot: SystemSnapshot, components_db_path: str | None = None) -> 
     # --- RAM upgrade ---
     if snapshot.memory:
         mem = snapshot.memory
+        mem_type = mem.slots[0].type if mem.slots else "DDR"
         if mem.total_mb < 4096:
             report.bottlenecks.append(f"Мало ОЗУ: {mem.total_mb} МБ")
-            target = "8 ГБ"
             report.recommendations.append(UpgradeRecommendation(
                 component="ram",
                 priority=priority,
                 current=f"{mem.total_mb} МБ",
-                recommended=f"{target} ({mem.slots[0].type if mem.slots else 'DDR'})",
+                recommended=f"8 ГБ ({mem_type})",
                 reason="Недостаточно памяти для комфортной работы",
                 expected_impact="Уменьшение использования подкачки, улучшение многозадачности",
                 estimated_cost="1500-3000 руб.",
@@ -111,7 +111,7 @@ def analyze(snapshot: SystemSnapshot, components_db_path: str | None = None) -> 
                 component="ram",
                 priority=priority,
                 current=f"{mem.total_mb} МБ ({mem.usage_percent}% загрузка)",
-                recommended=f"16 ГБ ({mem.slots[0].type if mem.slots else 'DDR'})",
+                recommended=f"16 ГБ ({mem_type})",
                 reason="Высокая загрузка памяти приводит к замедлению",
                 expected_impact="Улучшение производительности при многозадачности",
                 estimated_cost="2000-4000 руб.",
