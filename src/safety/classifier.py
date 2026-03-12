@@ -44,7 +44,8 @@ class SafetyClassifier:
 
         risk = action_def.get("risk", "yellow")
         level_def = self._risk_levels.get(risk, {})
-        max_allowed = self.config.settings.get("safety", {}).get("max_risk_level", "yellow")
+        safety_cfg = self.config.settings.get("safety", {})
+        max_allowed = safety_cfg.get("max_risk_level", "yellow")
         expert_mode = self.config.expert_mode
 
         # Determine if action is allowed
@@ -70,7 +71,7 @@ class SafetyClassifier:
         requires_backup = level_def.get("auto_backup", True)
         label = level_def.get("label", risk)
 
-        if self.config.settings.get("safety", {}).get("require_confirmation", True):
+        if safety_cfg.get("require_confirmation", True):
             requires_confirmation = requires_confirmation or risk != "green"
 
         verdict = SafetyVerdict(

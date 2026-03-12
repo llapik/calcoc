@@ -125,6 +125,20 @@ class AIEngine:
         tokens = max_tokens if max_tokens is not None else ai_cfg.get("max_tokens", _DEFAULT_TOKENS)
         return float(temp), int(tokens)
 
+    def _prepare_prompt(
+        self,
+        message: str,
+        context: str,
+        temperature: float | None,
+        max_tokens: int | None,
+    ) -> tuple[str, str, float, int]:
+        """Resolve params, build system prompt, enrich user prompt with KB context."""
+        temp, tokens = self._resolve_params(temperature, max_tokens)
+        system_prompt = get_system_prompt(self.config.language)
+        prompt = f"{context}\n\n{message}" if context else message
+        prompt = self._enrich_with_knowledge(prompt)
+        return prompt, system_prompt, temp, tokens
+
     def chat(
         self,
         message: str,
@@ -134,12 +148,7 @@ class AIEngine:
     ) -> str:
         """Generate a response to a user message."""
         self.ensure_ready()
-
-        temp, tokens = self._resolve_params(temperature, max_tokens)
-        system_prompt = get_system_prompt(self.config.language)
-
-        prompt = f"{context}\n\n{message}" if context else message
-        prompt = self._enrich_with_knowledge(prompt)
+        prompt, system_prompt, temp, tokens = self._prepare_prompt(message, context, temperature, max_tokens)
 
         if self._backend == "openrouter" and self._openrouter:
             return self._openrouter.generate(
@@ -166,12 +175,7 @@ class AIEngine:
     ) -> Generator[str, None, None]:
         """Stream a response token by token."""
         self.ensure_ready()
-
-        temp, tokens = self._resolve_params(temperature, max_tokens)
-        system_prompt = get_system_prompt(self.config.language)
-
-        prompt = f"{context}\n\n{message}" if context else message
-        prompt = self._enrich_with_knowledge(prompt)
+        prompt, system_prompt, temp, tokens = self._prepare_prompt(message, context, temperature, max_tokens)
 
         if self._backend == "openrouter" and self._openrouter:
             yield from self._openrouter.generate_stream(

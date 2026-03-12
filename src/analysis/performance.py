@@ -39,6 +39,7 @@ def analyze(snapshot: SystemSnapshot) -> PerformanceReport:
     _check_memory(snapshot, report)
     _check_disk(snapshot, report)
     _check_gpu(snapshot, report)
+    report.score = max(0, report.score)
     return report
 
 
@@ -169,8 +170,6 @@ def _check_disk(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
                 ))
                 report.score -= 10
 
-    report.score = max(0, report.score)
-
 
 def _check_gpu(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
     if not snapshot.gpu:
@@ -185,5 +184,3 @@ def _check_gpu(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
                 recommendation="Проверьте охлаждение видеокарты",
             ))
             report.score -= 15
-
-    report.score = max(0, report.score)

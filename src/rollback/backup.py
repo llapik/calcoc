@@ -1,6 +1,5 @@
 """Backup manager — create and restore backups of files, partitions, and boot records."""
 
-import os
 import shutil
 import subprocess
 import time
@@ -37,10 +36,8 @@ class BackupManager:
     def backup_file(self, source: str, session_id: str = "") -> BackupInfo:
         """Backup a single file."""
         backup = self._make_backup_info(source, "file")
-        # Ensure the parent directory of the backup path exists
-        Path(backup.backup_path).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, backup.backup_path)
-        backup.size_bytes = os.path.getsize(backup.backup_path)
+        backup.size_bytes = Path(backup.backup_path).stat().st_size
 
         self.journal.record(
             action="backup_file",
@@ -56,23 +53,19 @@ class BackupManager:
         """Backup an entire directory as a .tar.gz archive."""
         backup = self._make_backup_info(source, "directory")
         backup.backup_path += ".tar.gz"
-        Path(backup.backup_path).parent.mkdir(parents=True, exist_ok=True)
+        src = Path(source).resolve()
 
         subprocess.check_call(
-            ["tar", "czf", backup.backup_path, "-C",
-             os.path.dirname(os.path.abspath(source)), os.path.basename(source)],
+            ["tar", "czf", backup.backup_path, "-C", str(src.parent), src.name],
             timeout=600,
         )
-        backup.size_bytes = os.path.getsize(backup.backup_path)
+        backup.size_bytes = Path(backup.backup_path).stat().st_size
 
         self.journal.record(
             action="backup_directory",
             target=source,
             backup_path=backup.backup_path,
-            rollback_cmd=(
-                f"tar xzf '{backup.backup_path}' "
-                f"-C '{os.path.dirname(os.path.abspath(source))}'"
-            ),
+            rollback_cmd=f"tar xzf '{backup.backup_path}' -C '{src.parent}'",
             session_id=session_id,
         )
         log.info("Directory backed up: %s -> %s", source, backup.backup_path)
@@ -82,7 +75,6 @@ class BackupManager:
         """Backup MBR (first 512 bytes) of a block device."""
         backup = self._make_backup_info(device, "mbr")
         backup.backup_path += ".mbr"
-        Path(backup.backup_path).parent.mkdir(parents=True, exist_ok=True)
 
         subprocess.check_call(
             ["dd", f"if={device}", f"of={backup.backup_path}", "bs=512", "count=1"],
@@ -106,14 +98,13 @@ class BackupManager:
         """Backup partition table using sfdisk."""
         backup = self._make_backup_info(device, "partition_table")
         backup.backup_path += ".sfdisk"
-        Path(backup.backup_path).parent.mkdir(parents=True, exist_ok=True)
 
         with open(backup.backup_path, "w") as fh:
             subprocess.check_call(
                 ["sfdisk", "--dump", device],
                 stdout=fh, timeout=30, stderr=subprocess.DEVNULL,
             )
-        backup.size_bytes = os.path.getsize(backup.backup_path)
+        backup.size_bytes = Path(backup.backup_path).stat().st_size
 
         self.journal.record(
             action="backup_partition_table",
@@ -131,23 +122,21 @@ class BackupManager:
     # ------------------------------------------------------------------
     def restore(self, backup_path: str) -> bool:
         """Execute the rollback command stored in the journal for this backup."""
-        for entry in self.journal.get_rollbackable():
-            if entry.backup_path == backup_path:
-                log.info("Rolling back journal entry #%d: %s", entry.id, entry.action)
-                try:
-                    subprocess.check_call(
-                        entry.rollback_cmd, shell=True, timeout=600,
-                    )
-                    self.journal.update_status(entry.id, "rolled_back")
-                    log.info("Rollback successful for entry #%d", entry.id)
-                    return True
-                except Exception as exc:
-                    log.error("Rollback failed for entry #%d: %s", entry.id, exc)
-                    self.journal.update_status(entry.id, "failed")
-                    return False
+        entry = self.journal.get_entry_by_backup_path(backup_path)
+        if entry is None:
+            log.error("No journal entry found for backup: %s", backup_path)
+            return False
 
-        log.error("No journal entry found for backup: %s", backup_path)
-        return False
+        log.info("Rolling back journal entry #%d: %s", entry.id, entry.action)
+        try:
+            subprocess.check_call(entry.rollback_cmd, shell=True, timeout=600)
+            self.journal.update_status(entry.id, "rolled_back")
+            log.info("Rollback successful for entry #%d", entry.id)
+            return True
+        except Exception as exc:
+            log.error("Rollback failed for entry #%d: %s", entry.id, exc)
+            self.journal.update_status(entry.id, "failed")
+            return False
 
     def rollback_last(self, session_id: str = "") -> bool:
         """Roll back the most recent completed operation (optionally within a session)."""
@@ -170,11 +159,12 @@ class BackupManager:
         ts = time.time()
         safe_name = source.replace("/", "_").strip("_")[:120]
         backup_id = f"{int(ts)}_{safe_name}"
-        backup_path = str(self.backup_dir / backup_id)
+        backup_path = self.backup_dir / backup_id
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
         return BackupInfo(
             backup_id=backup_id,
             source_path=source,
-            backup_path=backup_path,
+            backup_path=str(backup_path),
             backup_type=backup_type,
             timestamp=ts,
         )

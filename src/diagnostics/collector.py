@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, asdict
 from typing import Any
 
@@ -71,19 +72,30 @@ class SystemSnapshot:
         return "\n".join(lines)
 
 
+_COLLECTORS = [
+    ("cpu", cpu.collect, "CPU"),
+    ("memory", memory.collect, "Memory"),
+    ("disk", disk.collect, "Disk"),
+    ("gpu", gpu.collect, "GPU"),
+    ("motherboard", motherboard.collect, "Motherboard"),
+    ("os", os_info.collect, "OS"),
+    ("network", network.collect, "Network"),
+]
+
+
 class SystemCollector:
     """Runs all diagnostic modules and returns a snapshot."""
 
     def collect_all(self) -> SystemSnapshot:
         log.info("Starting full system scan…")
         snapshot = SystemSnapshot()
-        snapshot.cpu = self._safe(cpu.collect, "CPU")
-        snapshot.memory = self._safe(memory.collect, "Memory")
-        snapshot.disk = self._safe(disk.collect, "Disk")
-        snapshot.gpu = self._safe(gpu.collect, "GPU")
-        snapshot.motherboard = self._safe(motherboard.collect, "Motherboard")
-        snapshot.os = self._safe(os_info.collect, "OS")
-        snapshot.network = self._safe(network.collect, "Network")
+        with ThreadPoolExecutor(max_workers=len(_COLLECTORS)) as executor:
+            futures = [
+                (attr, executor.submit(self._safe, fn, label))
+                for attr, fn, label in _COLLECTORS
+            ]
+            for attr, future in futures:
+                setattr(snapshot, attr, future.result())
         log.info("System scan complete")
         return snapshot
 
