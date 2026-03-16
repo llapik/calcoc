@@ -20,7 +20,8 @@ class OpenRouterBackend:
         default_model: str = "meta-llama/llama-3-8b-instruct",
         fallback_models: list[str] | None = None,
     ):
-        self.api_key = api_key
+        # Keep only a short masked suffix for diagnostics; never log the full key
+        self._key_hint = f"...{api_key[-4:]}" if len(api_key) >= 8 else "***"
         self.base_url = base_url.rstrip("/")
         self.default_model = default_model
         self.fallback_models = fallback_models or []
@@ -34,7 +35,7 @@ class OpenRouterBackend:
 
     @property
     def is_available(self) -> bool:
-        return bool(self.api_key)
+        return bool(self._session.headers.get("Authorization", "").removeprefix("Bearer "))
 
     def generate(
         self,
@@ -128,7 +129,7 @@ class OpenRouterBackend:
             "max_tokens": max_tokens,
         }
 
-        log.debug("Requesting %s via OpenRouter", model)
+        log.debug("Requesting %s via OpenRouter (key %s)", model, self._key_hint)
         resp = self._session.post(
             f"{self.base_url}/chat/completions",
             json=payload,

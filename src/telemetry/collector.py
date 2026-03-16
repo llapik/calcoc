@@ -1,5 +1,6 @@
 """Telemetry data collector — stores hardware parameters over time."""
 
+import hashlib
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -127,13 +128,21 @@ class TelemetryCollector:
 
     @staticmethod
     def _derive_machine_id(snapshot: SystemSnapshot) -> str:
-        """Create a machine identifier from hardware info."""
+        """Create a stable, anonymised machine identifier.
+
+        The raw serial number is never stored — only a truncated SHA-256 digest
+        of the combined hardware identifiers is kept, making it impossible to
+        recover the original values from the telemetry database.
+        """
         parts = []
         if snapshot.motherboard:
             parts.append(snapshot.motherboard.serial or snapshot.motherboard.product_name)
         if snapshot.cpu:
             parts.append(snapshot.cpu.model)
-        return "_".join(parts)[:64] if parts else "unknown"
+        if not parts:
+            return "unknown"
+        raw = "_".join(parts)
+        return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
     @staticmethod
     def _row_to_record(row) -> TelemetryRecord:

@@ -1,6 +1,7 @@
 """Main application entry-point for AI PC Repair & Optimizer."""
 
 import argparse
+import secrets
 from pathlib import Path
 
 from flask import Flask
@@ -27,7 +28,7 @@ def create_app(config: Config | None = None) -> Flask:
         template_folder=str(_SRC_DIR / "web" / "templates"),
         static_folder=str(_SRC_DIR / "web" / "static"),
     )
-    app.config["SECRET_KEY"] = "calcoc-local-only"
+    app.config["SECRET_KEY"] = secrets.token_hex(32)
     app.config["CALCOC_CONFIG"] = config
 
     # Initialise AI engine (lazy — actual model loaded on first request)

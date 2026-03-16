@@ -1,11 +1,21 @@
 """Filesystem repair — fsck, chkdsk, and filesystem checks."""
 
+import re
 import subprocess
 from dataclasses import dataclass
 
 from src.core.logger import get_logger
 
 log = get_logger("repair.fs")
+
+# Only allow canonical block-device paths to reach subprocess args
+_DEVICE_RE = re.compile(r"^/dev/[a-zA-Z0-9/_-]+$")
+
+
+def _validate_device(device: str) -> None:
+    """Raise ValueError if *device* is not a safe block-device path."""
+    if not _DEVICE_RE.match(device):
+        raise ValueError(f"Недопустимый путь устройства: {device!r}")
 
 
 @dataclass
@@ -18,6 +28,11 @@ class RepairResult:
 
 def check_filesystem(device: str, fs_type: str) -> RepairResult:
     """Check a filesystem for errors (read-only check)."""
+    try:
+        _validate_device(device)
+    except ValueError as exc:
+        return RepairResult(success=False, action="check_filesystem", details=str(exc))
+
     if fs_type in ("ext4", "ext3", "ext2"):
         return _check_ext(device)
     elif fs_type == "ntfs":
@@ -32,6 +47,11 @@ def check_filesystem(device: str, fs_type: str) -> RepairResult:
 
 def fix_filesystem(device: str, fs_type: str) -> RepairResult:
     """Repair a filesystem (requires unmounted partition)."""
+    try:
+        _validate_device(device)
+    except ValueError as exc:
+        return RepairResult(success=False, action="fix_filesystem", details=str(exc))
+
     if fs_type in ("ext4", "ext3", "ext2"):
         return _fix_ext(device)
     elif fs_type == "ntfs":

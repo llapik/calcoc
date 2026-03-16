@@ -1,5 +1,6 @@
 """Backup manager — create and restore backups of files, partitions, and boot records."""
 
+import json
 import shutil
 import subprocess
 import time
@@ -43,7 +44,7 @@ class BackupManager:
             action="backup_file",
             target=source,
             backup_path=backup.backup_path,
-            rollback_cmd=f"cp -p '{backup.backup_path}' '{source}'",
+            rollback_cmd=json.dumps(["cp", "-p", backup.backup_path, source]),
             session_id=session_id,
         )
         log.info("File backed up: %s -> %s", source, backup.backup_path)
@@ -65,7 +66,7 @@ class BackupManager:
             action="backup_directory",
             target=source,
             backup_path=backup.backup_path,
-            rollback_cmd=f"tar xzf '{backup.backup_path}' -C '{src.parent}'",
+            rollback_cmd=json.dumps(["tar", "xzf", backup.backup_path, "-C", str(src.parent)]),
             session_id=session_id,
         )
         log.info("Directory backed up: %s -> %s", source, backup.backup_path)
@@ -88,7 +89,9 @@ class BackupManager:
             risk_level="red",
             backup_path=backup.backup_path,
             # Restore only the bootstrap code (446 bytes), preserving the partition table
-            rollback_cmd=f"dd if='{backup.backup_path}' of='{device}' bs=446 count=1",
+            rollback_cmd=json.dumps(
+                ["dd", f"if={backup.backup_path}", f"of={device}", "bs=446", "count=1"]
+            ),
             session_id=session_id,
         )
         log.info("MBR backed up: %s -> %s", device, backup.backup_path)
@@ -111,7 +114,8 @@ class BackupManager:
             target=device,
             risk_level="red",
             backup_path=backup.backup_path,
-            rollback_cmd=f"sfdisk '{device}' < '{backup.backup_path}'",
+            # stdin is fed from backup_path by _exec_rollback — no shell redirection needed
+            rollback_cmd=json.dumps(["sfdisk", device]),
             session_id=session_id,
         )
         log.info("Partition table backed up: %s -> %s", device, backup.backup_path)
@@ -129,7 +133,7 @@ class BackupManager:
 
         log.info("Rolling back journal entry #%d: %s", entry.id, entry.action)
         try:
-            subprocess.check_call(entry.rollback_cmd, shell=True, timeout=600)
+            self._exec_rollback(entry)
             self.journal.update_status(entry.id, "rolled_back")
             log.info("Rollback successful for entry #%d", entry.id)
             return True
@@ -137,6 +141,30 @@ class BackupManager:
             log.error("Rollback failed for entry #%d: %s", entry.id, exc)
             self.journal.update_status(entry.id, "failed")
             return False
+
+    def _exec_rollback(self, entry) -> None:
+        """Execute a rollback command without shell=True (no injection risk).
+
+        Commands are stored as JSON arrays.  The only special case is
+        backup_partition_table where sfdisk reads the partition layout from
+        stdin rather than a shell-redirect.
+        """
+        try:
+            cmd = json.loads(entry.rollback_cmd)
+            if not isinstance(cmd, list) or not cmd:
+                raise ValueError("rollback_cmd is not a non-empty list")
+        except (json.JSONDecodeError, ValueError):
+            # Backward-compat: legacy entries may hold raw shell strings.
+            log.warning("Legacy shell rollback_cmd for entry #%d; falling back to shell=True", entry.id)
+            subprocess.check_call(entry.rollback_cmd, shell=True, timeout=600)
+            return
+
+        if entry.action == "backup_partition_table" and entry.backup_path:
+            # Feed saved partition layout into sfdisk via stdin instead of shell '<'
+            with open(entry.backup_path) as fh:
+                subprocess.check_call(cmd, stdin=fh, timeout=60)
+        else:
+            subprocess.check_call(cmd, timeout=600)
 
     def rollback_last(self, session_id: str = "") -> bool:
         """Roll back the most recent completed operation (optionally within a session)."""
