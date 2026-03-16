@@ -154,10 +154,11 @@ class BackupManager:
             if not isinstance(cmd, list) or not cmd:
                 raise ValueError("rollback_cmd is not a non-empty list")
         except (json.JSONDecodeError, ValueError):
-            # Backward-compat: legacy entries may hold raw shell strings.
-            log.warning("Legacy shell rollback_cmd for entry #%d; falling back to shell=True", entry.id)
-            subprocess.check_call(entry.rollback_cmd, shell=True, timeout=600)
-            return
+            # Refuse to execute unrecognised entries — never fall back to shell=True.
+            raise ValueError(
+                f"rollback_cmd for entry #{entry.id} is not a valid JSON array; "
+                "refusing to execute to prevent shell injection"
+            )
 
         if entry.action == "backup_partition_table" and entry.backup_path:
             # Feed saved partition layout into sfdisk via stdin instead of shell '<'
@@ -185,9 +186,17 @@ class BackupManager:
     # ------------------------------------------------------------------
     def _make_backup_info(self, source: str, backup_type: str) -> BackupInfo:
         ts = time.time()
-        safe_name = source.replace("/", "_").strip("_")[:120]
+        # Strip everything that is not alphanumeric, hyphen, or dot — no slashes,
+        # no shell metacharacters, no leading dots (prevents dotfile/traversal names).
+        import re
+        safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", source).lstrip("._")[:120] or "backup"
         backup_id = f"{int(ts)}_{safe_name}"
-        backup_path = self.backup_dir / backup_id
+        backup_path = (self.backup_dir / backup_id).resolve()
+
+        # Verify the resolved path stays inside backup_dir to prevent traversal.
+        if not str(backup_path).startswith(str(self.backup_dir.resolve())):
+            raise ValueError(f"Path traversal detected in backup source: {source!r}")
+
         backup_path.parent.mkdir(parents=True, exist_ok=True)
         return BackupInfo(
             backup_id=backup_id,

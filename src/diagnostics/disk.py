@@ -199,8 +199,11 @@ def _df_used_mb_batch(mount_points: list[str]) -> dict[str, int]:
     if not mount_points:
         return {}
     try:
+        # Filter out any path that starts with '-' to prevent option injection,
+        # then add '--' to stop option processing entirely.
+        safe_points = [p for p in mount_points if not p.startswith("-")]
         output = subprocess.check_output(
-            ["df", "-BM", "--output=target,used"] + mount_points,
+            ["df", "-BM", "--output=target,used", "--"] + safe_points,
             text=True, timeout=10, stderr=subprocess.DEVNULL,
         )
         result: dict[str, int] = {}

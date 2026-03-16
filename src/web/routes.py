@@ -17,6 +17,9 @@ from src.upgrade.advisor import analyze as analyze_upgrade
 
 log = get_logger("web.routes")
 
+_ALLOWED_LANGUAGES = frozenset({"ru", "en"})
+_MAX_CHAT_MESSAGE_LEN = 4096
+
 
 def register_routes(app: Flask) -> None:
     """Register all routes on the Flask app."""
@@ -65,8 +68,8 @@ def register_routes(app: Flask) -> None:
                 "data": snapshot.to_dict(),
             })
         except Exception as exc:
-            log.error("Scan failed: %s", exc)
-            return jsonify({"status": "error", "message": f"Ошибка диагностики: {exc}"}), 500
+            log.exception("Scan failed")
+            return jsonify({"status": "error", "message": "Ошибка диагностики. Подробности в журнале."}), 500
 
     @app.route("/api/problems", methods=["POST"])
     def api_problems():
@@ -94,8 +97,8 @@ def register_routes(app: Flask) -> None:
                 ],
             })
         except Exception as exc:
-            log.error("Problem analysis failed: %s", exc)
-            return jsonify({"status": "error", "message": f"Ошибка анализа: {exc}"}), 500
+            log.exception("Problem analysis failed")
+            return jsonify({"status": "error", "message": "Ошибка анализа. Подробности в журнале."}), 500
 
     @app.route("/api/performance", methods=["POST"])
     def api_performance():
@@ -120,8 +123,8 @@ def register_routes(app: Flask) -> None:
                 ],
             })
         except Exception as exc:
-            log.error("Performance analysis failed: %s", exc)
-            return jsonify({"status": "error", "message": f"Ошибка: {exc}"}), 500
+            log.exception("Performance analysis failed")
+            return jsonify({"status": "error", "message": "Ошибка анализа производительности. Подробности в журнале."}), 500
 
     @app.route("/api/upgrade", methods=["POST"])
     def api_upgrade():
@@ -149,8 +152,8 @@ def register_routes(app: Flask) -> None:
                 ],
             })
         except Exception as exc:
-            log.error("Upgrade analysis failed: %s", exc)
-            return jsonify({"status": "error", "message": f"Ошибка: {exc}"}), 500
+            log.exception("Upgrade analysis failed")
+            return jsonify({"status": "error", "message": "Ошибка рекомендаций. Подробности в журнале."}), 500
 
     # ------------------------------------------------------------------
     # API: AI Chat
@@ -163,6 +166,8 @@ def register_routes(app: Flask) -> None:
             return jsonify({"status": "error", "message": "Сообщение не указано"}), 400
 
         message = data["message"]
+        if len(message) > _MAX_CHAT_MESSAGE_LEN:
+            return jsonify({"status": "error", "message": "Сообщение слишком длинное (макс. 4096 символов)"}), 400
         engine = _engine()
         context = _build_context(state)
 
@@ -170,8 +175,8 @@ def register_routes(app: Flask) -> None:
             response = engine.chat(message, context=context)
             return jsonify({"status": "ok", "response": response, "backend": engine.backend_name})
         except Exception as exc:
-            log.error("Chat error: %s", exc)
-            return jsonify({"status": "error", "message": str(exc)}), 500
+            log.exception("Chat error")
+            return jsonify({"status": "error", "message": "Ошибка AI. Подробности в журнале."}), 500
 
     @app.route("/api/chat/stream", methods=["POST"])
     def api_chat_stream():
@@ -181,6 +186,8 @@ def register_routes(app: Flask) -> None:
             return jsonify({"status": "error", "message": "Сообщение не указано"}), 400
 
         message = data["message"]
+        if len(message) > _MAX_CHAT_MESSAGE_LEN:
+            return jsonify({"status": "error", "message": "Сообщение слишком длинное (макс. 4096 символов)"}), 400
         engine = _engine()
         context = _build_context(state)
 
@@ -190,8 +197,8 @@ def register_routes(app: Flask) -> None:
                     yield f"data: {json.dumps({'token': token})}\n\n"
                 yield f"data: {json.dumps({'done': True})}\n\n"
             except Exception as exc:
-                log.error("Stream error: %s", exc)
-                yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+                log.exception("Stream error")
+                yield f"data: {json.dumps({'error': 'Ошибка AI. Подробности в журнале.'})}\n\n"
 
         return Response(
             stream_with_context(generate()),
@@ -245,7 +252,7 @@ def register_routes(app: Flask) -> None:
         config = _config()
         engine = _engine()
 
-        if "language" in data:
+        if "language" in data and data["language"] in _ALLOWED_LANGUAGES:
             config.settings.setdefault("app", {})["language"] = data["language"]
         if "expert_mode" in data:
             config.settings.setdefault("app", {})["expert_mode"] = bool(data["expert_mode"])

@@ -21,11 +21,29 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return merged
 
 
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
 class Config:
     """Centralised access to every YAML config file."""
 
     def __init__(self, config_dir: str | Path | None = None):
-        self.config_dir = Path(config_dir) if config_dir else _CONFIG_DIR
+        if config_dir is not None:
+            resolved = Path(config_dir).resolve()
+            # Only allow config dirs that are subdirectories of the repo root or
+            # absolute paths under recognised safe prefixes (e.g. /mnt, /media, /run).
+            _safe_prefixes = (
+                str(_ROOT_DIR),
+                "/mnt/", "/media/", "/run/", "/etc/calcoc", "/tmp/",
+            )
+            if not any(str(resolved).startswith(p) for p in _safe_prefixes):
+                raise ValueError(
+                    f"Unsafe config directory: {config_dir!r}. "
+                    "Must be inside the repo root or a recognised mount path."
+                )
+            self.config_dir = resolved
+        else:
+            self.config_dir = _CONFIG_DIR
         self._cache: dict[str, dict] = {}
         self.settings = self._load("settings.yaml")
         self.models = self._load("models.yaml")
@@ -86,9 +104,16 @@ class Config:
 
     @property
     def openrouter_base_url(self) -> str:
-        return self.settings.get("openrouter", {}).get(
-            "base_url", "https://openrouter.ai/api/v1"
-        )
+        """Return the OpenRouter base URL, refusing any non-OpenRouter override.
+
+        Hard-coding the allowed host prevents SSRF attacks where a malicious
+        settings.yaml redirects API calls (and the Bearer token) to a third-party
+        server.
+        """
+        url = self.settings.get("openrouter", {}).get("base_url", _OPENROUTER_BASE_URL)
+        if not str(url).startswith("https://openrouter.ai/"):
+            return _OPENROUTER_BASE_URL
+        return url
 
     @property
     def openrouter_model(self) -> str:
@@ -97,8 +122,12 @@ class Config:
         )
 
     def path(self, key: str) -> Path:
-        """Return a path from the ``paths`` section, creating it if needed."""
-        raw = self.settings.get("paths", {}).get(key, f"/tmp/calcoc/{key}")
+        """Return a path from the ``paths`` section, creating it if needed.
+
+        Falls back to /var/lib/calcoc/<key> (root-owned, mode 700) instead of
+        /tmp to avoid world-writable default directories.
+        """
+        raw = self.settings.get("paths", {}).get(key, f"/var/lib/calcoc/{key}")
         p = Path(raw)
-        p.mkdir(parents=True, exist_ok=True)
+        p.mkdir(parents=True, exist_ok=True, mode=0o700)
         return p

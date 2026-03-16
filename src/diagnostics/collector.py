@@ -23,7 +23,20 @@ class SystemSnapshot:
     network: network.NetworkInfo | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        """Return a serialisable dict safe for API responses.
+
+        Serial numbers (disk, motherboard) are omitted — they are unique hardware
+        identifiers that must not be exposed over the web interface.
+        """
+        data = asdict(self)
+        # Strip disk serial numbers
+        if data.get("disk") and data["disk"].get("devices"):
+            for dev in data["disk"]["devices"]:
+                dev.pop("serial", None)
+        # Strip motherboard serial number
+        if data.get("motherboard"):
+            data["motherboard"].pop("serial", None)
+        return data
 
     def summary_text(self) -> str:
         """Return a human-readable summary of the system."""
