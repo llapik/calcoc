@@ -2,40 +2,60 @@
 
 from dataclasses import dataclass, field
 
+from src.core.i18n import t
 from src.core.logger import get_logger
 from src.diagnostics.collector import SystemSnapshot
 
 log = get_logger("analysis.performance")
 
+# Thresholds shared with the health dashboard (src/analysis/health.py)
+CPU_TEMP_HIGH, CPU_TEMP_CRITICAL = 70, 85
+CPU_LOAD_HIGH = 90
+RAM_HIGH, RAM_CRITICAL = 75, 90
+SWAP_HIGH = 50
+DISK_TEMP_HIGH = 55
+PARTITION_FULL = 90
+GPU_TEMP_HIGH, GPU_TEMP_CRITICAL = 80, 90
+
 
 @dataclass
 class Bottleneck:
-    component: str = ""  # cpu | ram | disk | gpu
+    component: str = ""  # cpu | memory | disk | gpu
     severity: str = "info"  # info | warning | critical
     description: str = ""
     recommendation: str = ""
-    kind: str = ""  # machine-readable tag for findings other analysers also report
+    kind: str = ""  # machine-readable finding type, stable across languages and values
+    target: str = ""  # device the finding is about, if any
 
 
 @dataclass
 class PerformanceReport:
     bottlenecks: list[Bottleneck] = field(default_factory=list)
-    score: int = 100  # 0-100 overall health score
+    score: int = 100  # 0-100 overall performance score
+    lang: str = "ru"
 
     @property
     def summary(self) -> str:
         if not self.bottlenecks:
-            return f"Оценка производительности: {self.score}/100 — проблем не обнаружено"
+            return t("perf.summary.ok", self.lang, score=self.score)
         critical = sum(1 for b in self.bottlenecks if b.severity == "critical")
-        return (
-            f"Оценка производительности: {self.score}/100 — "
-            f"найдено узких мест: {len(self.bottlenecks)} (критических: {critical})"
-        )
+        return t("perf.summary", self.lang, score=self.score, n=len(self.bottlenecks), critical=critical)
+
+    def add(self, kind: str, component: str, severity: str, penalty: int, target: str = "", **fmt) -> None:
+        self.bottlenecks.append(Bottleneck(
+            component=component,
+            severity=severity,
+            description=t(f"perf.{kind}", self.lang, **fmt),
+            recommendation=t(f"perf.{kind}.rec", self.lang),
+            kind=kind,
+            target=target,
+        ))
+        self.score -= penalty
 
 
-def analyze(snapshot: SystemSnapshot) -> PerformanceReport:
+def analyze(snapshot: SystemSnapshot, lang: str = "ru") -> PerformanceReport:
     """Analyze system snapshot for performance bottlenecks."""
-    report = PerformanceReport()
+    report = PerformanceReport(lang=lang)
     _check_cpu(snapshot, report)
     _check_memory(snapshot, report)
     _check_disk(snapshot, report)
@@ -49,40 +69,16 @@ def _check_cpu(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
     if not cpu:
         return
 
-    if cpu.usage_percent is not None and cpu.usage_percent > 90:
-        report.bottlenecks.append(Bottleneck(
-            component="cpu",
-            severity="warning",
-            description=f"Загрузка CPU: {cpu.usage_percent}%",
-            recommendation="Проверьте запущенные процессы, возможно есть зависшие приложения",
-        ))
-        report.score -= 15
+    if cpu.usage_percent is not None and cpu.usage_percent > CPU_LOAD_HIGH:
+        report.add("cpu_load", "cpu", "warning", 15, v=cpu.usage_percent)
 
-    if cpu.temperature_c is not None and cpu.temperature_c > 85:
-        report.bottlenecks.append(Bottleneck(
-            component="cpu",
-            severity="critical",
-            description=f"Температура CPU: {cpu.temperature_c}°C (критически высокая)",
-            recommendation="Проверьте систему охлаждения: термопасту, вентиляторы, радиатор",
-        ))
-        report.score -= 25
-    elif cpu.temperature_c is not None and cpu.temperature_c > 70:
-        report.bottlenecks.append(Bottleneck(
-            component="cpu",
-            severity="warning",
-            description=f"Температура CPU: {cpu.temperature_c}°C (повышенная)",
-            recommendation="Рекомендуется очистка системы охлаждения",
-        ))
-        report.score -= 10
+    if cpu.temperature_c is not None and cpu.temperature_c > CPU_TEMP_CRITICAL:
+        report.add("cpu_temp_critical", "cpu", "critical", 25, v=cpu.temperature_c)
+    elif cpu.temperature_c is not None and cpu.temperature_c > CPU_TEMP_HIGH:
+        report.add("cpu_temp_high", "cpu", "warning", 10, v=cpu.temperature_c)
 
     if cpu.cores_physical == 1:
-        report.bottlenecks.append(Bottleneck(
-            component="cpu",
-            severity="info",
-            description="Одноядерный процессор — ограниченная многозадачность",
-            recommendation="Рассмотрите апгрейд на многоядерный процессор",
-        ))
-        report.score -= 5
+        report.add("single_core", "cpu", "info", 5)
 
 
 def _check_memory(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
@@ -90,42 +86,18 @@ def _check_memory(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
     if not mem:
         return
 
-    if mem.usage_percent > 90:
-        report.bottlenecks.append(Bottleneck(
-            component="ram",
-            severity="critical",
-            description=f"ОЗУ загружена на {mem.usage_percent}% ({mem.used_mb}/{mem.total_mb} МБ)",
-            recommendation="Закройте неиспользуемые приложения или увеличьте объём ОЗУ",
-        ))
-        report.score -= 20
-    elif mem.usage_percent > 75:
-        report.bottlenecks.append(Bottleneck(
-            component="ram",
-            severity="warning",
-            description=f"ОЗУ загружена на {mem.usage_percent}%",
-            recommendation="Рассмотрите увеличение объёма ОЗУ",
-        ))
-        report.score -= 10
+    if mem.usage_percent > RAM_CRITICAL:
+        report.add("ram_critical", "memory", "critical", 20, v=mem.usage_percent, used=mem.used_mb, total=mem.total_mb)
+    elif mem.usage_percent > RAM_HIGH:
+        report.add("ram_high", "memory", "warning", 10, v=mem.usage_percent)
 
-    if mem.total_mb < 4096:
-        report.bottlenecks.append(Bottleneck(
-            component="ram",
-            severity="warning",
-            description=f"Малый объём ОЗУ: {mem.total_mb} МБ",
-            recommendation="Для комфортной работы рекомендуется минимум 8 ГБ ОЗУ",
-        ))
-        report.score -= 10
+    if 0 < mem.total_mb < 4096:
+        report.add("ram_small", "memory", "warning", 10, total=mem.total_mb)
 
     if mem.swap_used_mb > 0 and mem.swap_total_mb > 0:
         swap_pct = mem.swap_used_mb / mem.swap_total_mb * 100
-        if swap_pct > 50:
-            report.bottlenecks.append(Bottleneck(
-                component="ram",
-                severity="warning",
-                description=f"Активное использование SWAP ({swap_pct:.0f}%)",
-                recommendation="Система использует подкачку — добавьте ОЗУ для ускорения",
-            ))
-            report.score -= 10
+        if swap_pct > SWAP_HIGH:
+            report.add("swap", "memory", "warning", 10, v=swap_pct)
 
 
 def _check_disk(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
@@ -134,44 +106,20 @@ def _check_disk(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
 
     for d in snapshot.disk.devices:
         if d.smart_healthy is False:
-            report.bottlenecks.append(Bottleneck(
-                component="disk",
-                severity="critical",
-                description=f"Диск {d.model} ({d.device}) — S.M.A.R.T. FAILING",
-                recommendation="СРОЧНО сделайте резервную копию данных! Диск может выйти из строя",
-                kind="smart_failing",
-            ))
-            report.score -= 30
+            report.add("smart_failing", "disk", "critical", 30, target=d.device, model=d.model, device=d.device)
 
-        if d.temperature_c is not None and d.temperature_c > 55:
-            report.bottlenecks.append(Bottleneck(
-                component="disk",
-                severity="warning",
-                description=f"Температура диска {d.model}: {d.temperature_c}°C",
-                recommendation="Проверьте вентиляцию корпуса",
-            ))
-            report.score -= 5
+        if d.temperature_c is not None and d.temperature_c > DISK_TEMP_HIGH:
+            report.add("disk_temp", "disk", "warning", 5, target=d.device, model=d.model, v=d.temperature_c)
 
         if d.type == "HDD":
-            report.bottlenecks.append(Bottleneck(
-                component="disk",
-                severity="info",
-                description=f"HDD-диск {d.model} — медленнее SSD",
-                recommendation="Замена на SSD значительно ускорит загрузку и работу системы",
-            ))
-            report.score -= 5
+            report.add("hdd_slow", "disk", "info", 5, target=d.device, model=d.model)
 
-        # Check partition usage
         for part in d.partitions:
-            if part.usage_percent > 90 and part.size_mb > 1024:
-                report.bottlenecks.append(Bottleneck(
-                    component="disk",
-                    severity="warning",
-                    description=f"Раздел {part.device} заполнен на {part.usage_percent}%",
-                    recommendation="Освободите место — очистите временные файлы или переместите данные",
-                    kind="partition_full",
-                ))
-                report.score -= 10
+            if part.usage_percent > PARTITION_FULL and part.size_mb > 1024:
+                report.add(
+                    "partition_full", "disk", "warning", 10,
+                    target=part.device, device=part.device, v=part.usage_percent,
+                )
 
 
 def _check_gpu(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
@@ -179,11 +127,5 @@ def _check_gpu(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
         return
 
     for g in snapshot.gpu.devices:
-        if g.temperature_c is not None and g.temperature_c > 90:
-            report.bottlenecks.append(Bottleneck(
-                component="gpu",
-                severity="critical",
-                description=f"Температура GPU {g.name}: {g.temperature_c}°C",
-                recommendation="Проверьте охлаждение видеокарты",
-            ))
-            report.score -= 15
+        if g.temperature_c is not None and g.temperature_c > GPU_TEMP_CRITICAL:
+            report.add("gpu_temp", "gpu", "critical", 15, target=g.name, model=g.name, v=g.temperature_c)

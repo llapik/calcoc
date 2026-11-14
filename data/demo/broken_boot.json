@@ -141,7 +141,9 @@
    "description": {
     "ru": "Том помечен как «грязный», журнал $LogFile не воспроизведён. Раздел не монтируется, поэтому Windows на нём не видна.",
     "en": "The volume is flagged dirty and its $LogFile journal was not replayed. The partition will not mount, so Windows on it is not detected."
-   }
+   },
+   "component": "disk",
+   "target": "/dev/sda"
   },
   {
    "key": "boot:mbr:/dev/sda",
@@ -155,7 +157,9 @@
    "description": {
     "ru": "Загрузочный код MBR и хранилище BCD не проходят проверку. Исправление относится к высокому риску.",
     "en": "The MBR boot code and the BCD store fail verification. The fix is classed as high risk."
-   }
+   },
+   "component": "os",
+   "target": ""
   }
  ],
  "on_fix": {
@@ -182,5 +186,231 @@
     ]
    }
   ]
- }
+ },
+ "history": [
+  {
+   "days_ago": 330,
+   "cpu_temp": 40.0,
+   "cpu_usage": 8.0,
+   "ram": 35.0,
+   "gpu_temp": 37.0,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.0,
+     "hours": 17580,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 300,
+   "cpu_temp": 41.3,
+   "cpu_usage": 10.6,
+   "ram": 37.6,
+   "gpu_temp": 37.9,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.9,
+     "hours": 17700,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 270,
+   "cpu_temp": 38.7,
+   "cpu_usage": 5.4,
+   "ram": 32.4,
+   "gpu_temp": 36.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 32.1,
+     "hours": 17820,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 240,
+   "cpu_temp": 40.0,
+   "cpu_usage": 8.1,
+   "ram": 35.1,
+   "gpu_temp": 37.0,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.0,
+     "hours": 17940,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 210,
+   "cpu_temp": 41.3,
+   "cpu_usage": 10.6,
+   "ram": 37.6,
+   "gpu_temp": 37.9,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.9,
+     "hours": 18060,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 180,
+   "cpu_temp": 38.7,
+   "cpu_usage": 5.4,
+   "ram": 32.4,
+   "gpu_temp": 36.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 32.1,
+     "hours": 18180,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 150,
+   "cpu_temp": 40.1,
+   "cpu_usage": 8.1,
+   "ram": 35.1,
+   "gpu_temp": 37.0,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.0,
+     "hours": 18300,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 120,
+   "cpu_temp": 41.3,
+   "cpu_usage": 10.5,
+   "ram": 37.5,
+   "gpu_temp": 37.8,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.8,
+     "hours": 18420,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 90,
+   "cpu_temp": 38.7,
+   "cpu_usage": 5.3,
+   "ram": 32.3,
+   "gpu_temp": 36.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 32.1,
+     "hours": 18540,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 60,
+   "cpu_temp": 40.1,
+   "cpu_usage": 8.2,
+   "ram": 35.2,
+   "gpu_temp": 37.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.1,
+     "hours": 18660,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 45,
+   "cpu_temp": 41.3,
+   "cpu_usage": 10.5,
+   "ram": 37.5,
+   "gpu_temp": 37.8,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.8,
+     "hours": 18720,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 30,
+   "cpu_temp": 38.7,
+   "cpu_usage": 5.3,
+   "ram": 32.3,
+   "gpu_temp": 36.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 32.1,
+     "hours": 18780,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 21,
+   "cpu_temp": 40.1,
+   "cpu_usage": 8.2,
+   "ram": 35.2,
+   "gpu_temp": 37.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.1,
+     "hours": 18816,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 14,
+   "cpu_temp": 41.2,
+   "cpu_usage": 10.5,
+   "ram": 37.5,
+   "gpu_temp": 37.8,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.8,
+     "hours": 18844,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 7,
+   "cpu_temp": 38.6,
+   "cpu_usage": 5.3,
+   "ram": 32.3,
+   "gpu_temp": 36.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 32.1,
+     "hours": 18872,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 3,
+   "cpu_temp": 40.1,
+   "cpu_usage": 8.3,
+   "ram": 35.3,
+   "gpu_temp": 37.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 33.1,
+     "hours": 18888,
+     "healthy": true
+    }
+   }
+  }
+ ]
 }

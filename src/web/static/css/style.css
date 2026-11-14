@@ -9,9 +9,16 @@
     --text-secondary: #a0a0b0;
     --accent: #4fc3f7;
     --accent-hover: #29b6f6;
-    --green: #28a745;
-    --yellow: #ffc107;
-    --red: #dc3545;
+    /* Status colours are reserved for state and always paired with an icon and a label */
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    --green: var(--good);
+    --yellow: var(--warning);
+    --red: var(--critical);
+    --series: #3987e5;   /* single-series chart line, validated for the dark card surface */
+    --text-muted: #7f8aa3;
     --border: #2a3550;
     --radius: 8px;
     --shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -581,3 +588,140 @@ select {
     color: var(--text-primary);
 }
 .proposal-card { white-space: normal; }
+
+/* ---- Health dashboard ---- */
+.status-good { --st: var(--good); }
+.status-warning { --st: var(--warning); }
+.status-serious { --st: var(--serious); }
+.status-critical { --st: var(--critical); }
+.status-neutral { --st: var(--text-secondary); }
+
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--st);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    color: var(--text-primary);   /* text stays in text ink; the border and icon carry the state */
+}
+
+.health-hero {
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--st);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+}
+.score { display: flex; flex-direction: column; align-items: center; min-width: 7.5rem; }
+.score-value { font-size: 4rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.score-max { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.3rem; }
+.verdict { font-size: 1.35rem; font-weight: 600; }
+.health-hero .verdict::first-letter { color: var(--st); }
+.hero-counts, .hero-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.7rem; }
+
+.section-title { margin: 1.5rem 0 0.75rem; font-size: 1.05rem; display: flex; align-items: baseline; gap: 0.75rem; }
+.section-note { color: var(--text-muted); font-size: 0.8rem; font-weight: 400; }
+.panel-summary { margin-bottom: 1rem; }
+
+.component-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 0.9rem; align-items: start; }
+.component-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+    min-width: 0;
+}
+.component-card.status-serious, .component-card.status-critical { border-color: var(--st); }
+.component-card header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.7rem; }
+.component-icon { font-size: 1.4rem; }
+.component-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.component-title .kind { color: var(--text-secondary); font-size: 0.78rem; }
+.component-title .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.meter { margin-bottom: 0.6rem; }
+.meter-head { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
+.meter-value { color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.meter-track { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--st) 22%, transparent); overflow: hidden; }
+.meter-fill { height: 100%; border-radius: 999px; background: var(--st); }
+
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.9rem; font-size: 0.85rem; margin-top: 0.2rem; }
+.facts .fact { display: contents; }
+.facts dt { color: var(--text-secondary); }
+.facts dd { text-align: right; overflow-wrap: anywhere; }
+
+.component-problems { list-style: none; margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px solid var(--border); font-size: 0.85rem; line-height: 1.4; }
+.component-problems li { display: flex; gap: 0.45rem; margin-bottom: 0.3rem; }
+.pin { color: var(--st); flex-shrink: 0; }
+
+details.smart, .chart-card details { margin-top: 0.6rem; font-size: 0.82rem; }
+details summary { cursor: pointer; color: var(--text-secondary); }
+.table-scroll { overflow-x: auto; }
+details table { border-collapse: collapse; margin-top: 0.4rem; width: 100%; font-variant-numeric: tabular-nums; }
+details th, details td { padding: 0.2rem 0.45rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+details th { color: var(--text-secondary); font-weight: 500; }
+
+.forecast { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; margin-bottom: 0.9rem; }
+.forecast-title { font-weight: 600; margin-bottom: 0.5rem; }
+.forecast ul { list-style: none; }
+.forecast li { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.35rem 0; font-size: 0.9rem; line-height: 1.45; }
+
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.9rem; align-items: start; }
+.chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; min-width: 0; }
+.chart-card figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; margin-bottom: 0.4rem; }
+.chart-title { color: var(--text-secondary); font-size: 0.88rem; }
+.chart-now { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chart-card svg { display: block; width: 100%; height: auto; touch-action: none; outline-offset: 2px; }
+.chart-card .grid { stroke: #2a3550; stroke-width: 1; }
+.chart-card .axis { stroke: #3d4a6a; stroke-width: 1; }
+.chart-card .tick { fill: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.series-line { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.series-area { fill: var(--series); opacity: 0.1; }
+.series-dot { fill: var(--series); stroke: var(--bg-card); stroke-width: 2; }
+.crosshair { stroke: var(--text-muted); stroke-width: 1; }
+.chart-note { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.3rem; }
+.chart-tip {
+    position: fixed;
+    z-index: 50;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.82rem;
+    box-shadow: var(--shadow);
+}
+.chart-tip span { color: var(--text-secondary); }
+
+.nav-btn { display: flex; align-items: center; gap: 0.5rem; }
+.nav-count { margin-left: auto; background: var(--border); border-radius: 999px; padding: 0 0.5rem; font-size: 0.75rem; }
+.nav-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--st); }
+
+@media (max-width: 720px) {
+    .health-hero { flex-direction: column; align-items: flex-start; gap: 0.9rem; }
+    .score { align-items: flex-start; }
+}
+
+/* ---- Narrow screens: navigation moves above the content ---- */
+@media (max-width: 720px) {
+    .header { flex-wrap: wrap; gap: 0.5rem; height: auto; padding: 0.5rem 0.75rem; }
+    .header-left, .header-right { flex-wrap: wrap; min-width: 0; }
+    .header-right select { max-width: 46vw; }
+    .logo { font-size: 1rem; }
+    .main-layout { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 0.4rem; gap: 0.4rem; border-right: 0; border-bottom: 1px solid var(--border); }
+    .sidebar nav { flex-direction: row; overflow-x: auto; flex: 1; padding: 0; }
+    .nav-btn { white-space: nowrap; width: auto; }
+    .sidebar-actions { padding: 0; border: 0; }
+    .sidebar-actions .btn span { display: none; }
+    .content { padding: 0.75rem; min-width: 0; }
+    .component-grid, .chart-grid { grid-template-columns: 1fr; }
+    .message { max-width: 95%; }
+}

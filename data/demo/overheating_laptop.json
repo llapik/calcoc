@@ -136,6 +136,234 @@
    "description": {
     "ru": "Текущая частота 2390 МГц при максимуме 4500 МГц. В журнале ядра 214 сообщений «Package temperature above threshold, cpu clock throttled».",
     "en": "Current frequency is 2390 MHz of 4500 MHz maximum. The kernel log has 214 “Package temperature above threshold, cpu clock throttled” messages."
+   },
+   "component": "cpu",
+   "target": ""
+  }
+ ],
+ "history": [
+  {
+   "days_ago": 330,
+   "cpu_temp": 71.0,
+   "cpu_usage": 55.0,
+   "ram": 58.0,
+   "gpu_temp": 74.0,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 48,
+     "hours": 7470,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 300,
+   "cpu_temp": 73.95,
+   "cpu_usage": 61.9,
+   "ram": 61.5,
+   "gpu_temp": 76.10000000000001,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 49,
+     "hours": 7620,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 270,
+   "cpu_temp": 73.0,
+   "cpu_usage": 48.0,
+   "ram": 54.5,
+   "gpu_temp": 75.5,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 50,
+     "hours": 7770,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 240,
+   "cpu_temp": 75.95,
+   "cpu_usage": 55.1,
+   "ram": 58.1,
+   "gpu_temp": 77.6,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 50,
+     "hours": 7920,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 210,
+   "cpu_temp": 78.89999999999999,
+   "cpu_usage": 61.8,
+   "ram": 61.4,
+   "gpu_temp": 79.7,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 51,
+     "hours": 8070,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 180,
+   "cpu_temp": 77.95,
+   "cpu_usage": 48.0,
+   "ram": 54.5,
+   "gpu_temp": 79.1,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 52,
+     "hours": 8220,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 150,
+   "cpu_temp": 81.0,
+   "cpu_usage": 55.3,
+   "ram": 58.1,
+   "gpu_temp": 81.2,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 53,
+     "hours": 8370,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 120,
+   "cpu_temp": 83.85,
+   "cpu_usage": 61.8,
+   "ram": 61.4,
+   "gpu_temp": 83.2,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 54,
+     "hours": 8520,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 90,
+   "cpu_temp": 82.9,
+   "cpu_usage": 47.9,
+   "ram": 54.4,
+   "gpu_temp": 82.69999999999999,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 54,
+     "hours": 8670,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 60,
+   "cpu_temp": 85.94999999999999,
+   "cpu_usage": 55.4,
+   "ram": 58.2,
+   "gpu_temp": 84.89999999999999,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 55,
+     "hours": 8820,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 45,
+   "cpu_temp": 88.8,
+   "cpu_usage": 61.7,
+   "ram": 61.3,
+   "gpu_temp": 86.8,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 56,
+     "hours": 8895,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 30,
+   "cpu_temp": 87.85000000000001,
+   "cpu_usage": 47.8,
+   "ram": 54.4,
+   "gpu_temp": 86.3,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 57,
+     "hours": 8970,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 21,
+   "cpu_temp": 90.89999999999999,
+   "cpu_usage": 55.5,
+   "ram": 58.3,
+   "gpu_temp": 88.5,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 58,
+     "hours": 9015,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 14,
+   "cpu_temp": 93.65,
+   "cpu_usage": 61.6,
+   "ram": 61.3,
+   "gpu_temp": 90.39999999999999,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 58,
+     "hours": 9050,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 7,
+   "cpu_temp": 92.69999999999999,
+   "cpu_usage": 47.8,
+   "ram": 54.4,
+   "gpu_temp": 89.89999999999999,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 59,
+     "hours": 9085,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 3,
+   "cpu_temp": 95.85,
+   "cpu_usage": 55.7,
+   "ram": 58.3,
+   "gpu_temp": 92.1,
+   "disks": {
+    "/dev/nvme0n1": {
+     "temp": 60,
+     "hours": 9105,
+     "healthy": true
+    }
    }
   }
  ]

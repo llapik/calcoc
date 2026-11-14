@@ -133,7 +133,9 @@
    "description": {
     "ru": "Файл AppData\\Roaming\\WinSvcHost\\svchost64.exe маскируется под системный процесс и грузит CPU на 93%.",
     "en": "AppData\\Roaming\\WinSvcHost\\svchost64.exe poses as a system process and keeps the CPU at 93%."
-   }
+   },
+   "component": "security",
+   "target": ""
   },
   {
    "key": "malware:trojan",
@@ -151,7 +153,9 @@
    "description": {
     "ru": "Downloads\\KMS_activator.exe и установленная им библиотека ProgramData\\upd\\helper.dll.",
     "en": "Downloads\\KMS_activator.exe and the ProgramData\\upd\\helper.dll library it installed."
-   }
+   },
+   "component": "security",
+   "target": ""
   },
   {
    "key": "registry:autorun",
@@ -165,7 +169,9 @@
    "description": {
     "ru": "Остатки удалённых программ в HKLM\\...\\Run замедляют вход в систему.",
     "en": "Leftovers of uninstalled programs in HKLM\\...\\Run slow down sign-in."
-   }
+   },
+   "component": "os",
+   "target": ""
   }
  ],
  "on_fix": {
@@ -229,5 +235,215 @@
     "size_kb": 96
    }
   ]
- }
+ },
+ "history": [
+  {
+   "days_ago": 330,
+   "cpu_temp": 49.0,
+   "cpu_usage": 14.0,
+   "ram": 61.0,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.0,
+     "hours": 10860,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 300,
+   "cpu_temp": 50.3,
+   "cpu_usage": 16.6,
+   "ram": 62.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.9,
+     "hours": 11040,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 270,
+   "cpu_temp": 47.7,
+   "cpu_usage": 11.4,
+   "ram": 59.3,
+   "disks": {
+    "/dev/sda": {
+     "temp": 35.1,
+     "hours": 11220,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 240,
+   "cpu_temp": 49.0,
+   "cpu_usage": 14.1,
+   "ram": 61.0,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.0,
+     "hours": 11400,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 210,
+   "cpu_temp": 50.3,
+   "cpu_usage": 16.6,
+   "ram": 62.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.9,
+     "hours": 11580,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 180,
+   "cpu_temp": 47.7,
+   "cpu_usage": 11.4,
+   "ram": 59.2,
+   "disks": {
+    "/dev/sda": {
+     "temp": 35.1,
+     "hours": 11760,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 150,
+   "cpu_temp": 49.1,
+   "cpu_usage": 14.1,
+   "ram": 61.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.0,
+     "hours": 11940,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 120,
+   "cpu_temp": 50.3,
+   "cpu_usage": 16.5,
+   "ram": 62.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.8,
+     "hours": 12120,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 90,
+   "cpu_temp": 47.7,
+   "cpu_usage": 11.3,
+   "ram": 59.2,
+   "disks": {
+    "/dev/sda": {
+     "temp": 35.1,
+     "hours": 12300,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 60,
+   "cpu_temp": 49.1,
+   "cpu_usage": 14.2,
+   "ram": 61.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.1,
+     "hours": 12480,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 45,
+   "cpu_temp": 50.3,
+   "cpu_usage": 16.5,
+   "ram": 62.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.8,
+     "hours": 12570,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 30,
+   "cpu_temp": 47.7,
+   "cpu_usage": 11.3,
+   "ram": 59.2,
+   "disks": {
+    "/dev/sda": {
+     "temp": 35.1,
+     "hours": 12660,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 21,
+   "cpu_temp": 69.1,
+   "cpu_usage": 90.2,
+   "ram": 89.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.1,
+     "hours": 12714,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 14,
+   "cpu_temp": 70.2,
+   "cpu_usage": 92.5,
+   "ram": 90.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.8,
+     "hours": 12756,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 7,
+   "cpu_temp": 67.6,
+   "cpu_usage": 87.3,
+   "ram": 87.2,
+   "disks": {
+    "/dev/sda": {
+     "temp": 35.1,
+     "hours": 12798,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 3,
+   "cpu_temp": 69.1,
+   "cpu_usage": 90.3,
+   "ram": 89.2,
+   "disks": {
+    "/dev/sda": {
+     "temp": 36.1,
+     "hours": 12822,
+     "healthy": true
+    }
+   }
+  }
+ ]
 }

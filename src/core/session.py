@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 
+from src.analysis import health
 from src.analysis.problems import Problem, ProblemReport, analyze_all
 from src.core.config import Config
 from src.core.i18n import t
@@ -17,9 +18,12 @@ from src.demo.scenarios import DemoSession
 from src.diagnostics.collector import SystemCollector, SystemSnapshot
 from src.repair.executor import RepairExecutor, RepairOutcome
 from src.rollback.backup import BackupManager
+from src.telemetry.collector import TelemetryCollector, snapshot_to_record
+from src.telemetry.predictor import predict_records
 
 log = get_logger("session")
 
+_TELEMETRY_INTERVAL = 600  # seconds between stored measurements of the same machine
 _MAX_HISTORY = 40  # chat messages kept for the AI (tool calls and results included)
 
 
@@ -35,9 +39,13 @@ class SessionError(Exception):
 
 
 class AppSession:
-    def __init__(self, config: Config, executor: RepairExecutor, demo: str | None = None):
+    def __init__(
+        self, config: Config, executor: RepairExecutor, demo: str | None = None,
+        telemetry: TelemetryCollector | None = None,
+    ):
         self.config = config
         self.executor = executor
+        self.telemetry = telemetry
         self.id = str(uuid.uuid4())[:8]
         self.snapshot: SystemSnapshot | None = None
         self.problems: ProblemReport | None = None
@@ -75,6 +83,11 @@ class AppSession:
     def scan(self) -> SystemSnapshot:
         self.snapshot = self.demo.snapshot() if self.demo else SystemCollector().collect_all()
         self.problems = None  # stale after a new scan
+        if self.demo is None and self.telemetry is not None:
+            try:  # history is a bonus: never let it break a scan
+                self.telemetry.record(self.snapshot, min_interval=_TELEMETRY_INTERVAL)
+            except Exception as exc:
+                log.warning("Telemetry not recorded: %s", exc)
         return self.snapshot
 
     def analyze(self) -> ProblemReport:
@@ -82,9 +95,11 @@ class AppSession:
             raise SessionError("scan.required")
         if self.demo is not None:
             self.snapshot = self.demo.snapshot()
-            self.problems = analyze_all(self.snapshot, host_checks=False, extra=self.demo.problems(self.lang))
+            self.problems = analyze_all(
+                self.snapshot, host_checks=False, extra=self.demo.problems(self.lang), lang=self.lang,
+            )
         else:
-            self.problems = analyze_all(self.snapshot)
+            self.problems = analyze_all(self.snapshot, lang=self.lang)
         return self.problems
 
     def ensure_problems(self) -> ProblemReport:
@@ -96,7 +111,9 @@ class AppSession:
         Display ids (P001…) are renumbered whenever the analysis reruns, so anything that outlives
         one render — a confirmation card in the chat, for instance — must use the key.
         """
-        candidates = [p for p in self.problems.problems if p.key not in self.fixed] if self.problems else []
+        if self.snapshot is None:
+            raise SessionError("scan.required")
+        candidates = [p for p in self.ensure_problems().problems if p.key not in self.fixed]
         problem = next((p for p in candidates if p.key == ref), None) \
             or next((p for p in candidates if p.id == ref), None)
         if problem is None:
@@ -133,6 +150,56 @@ class AppSession:
                 "plan": plan.plan,
             }
         return data
+
+    def health_json(self) -> dict:
+        """Dashboard model: score, per-component status, meters and the problems behind them."""
+        report = self.ensure_problems()
+        open_problems = [p for p in report.problems if p.key not in self.fixed]
+        return health.build(self.snapshot, open_problems, self.lang).to_dict()
+
+    def history_json(self) -> dict:
+        """Measurements over time plus what their trends say, for the dashboard charts."""
+        if self.snapshot is None:
+            raise SessionError("scan.required", 404)
+        now = snapshot_to_record(self.snapshot)
+        if self.demo is not None:
+            records = self.demo.history(now.timestamp) + [now]
+        elif self.telemetry is not None:
+            records = self.telemetry.get_history(TelemetryCollector.machine_id(self.snapshot), limit=200)[::-1]
+            if not records or now.timestamp - records[-1].timestamp > 1:
+                records.append(now)  # the latest scan was too close to the previous one to be stored
+        else:
+            records = [now]
+
+        lang = self.lang
+        series: list[dict] = []
+
+        def add(series_id: str, label: str, unit: str, points: list[tuple[float, float | None]]) -> None:
+            points = [[round(ts * 1000), round(v, 1)] for ts, v in points if v is not None]
+            if len(points) >= 2:
+                series.append({"id": series_id, "label": label, "unit": unit, "points": points})
+
+        add("cpu_temp", t("history.cpu_temp", lang), "°C", [(r.timestamp, r.cpu_temp) for r in records])
+        add("gpu_temp", t("history.gpu_temp", lang), "°C", [(r.timestamp, r.gpu_temp) for r in records])
+        add("ram", t("history.ram", lang), "%", [(r.timestamp, r.ram_usage_pct) for r in records])
+        devices = sorted({dev for r in records for dev in r.per_disk("disk_temps") | r.per_disk("smart_attrs")})
+        for dev in devices:
+            realloc = [(r.timestamp, r.per_disk("smart_attrs").get(dev, {}).get("5")) for r in records]
+            if any(v for _, v in realloc):
+                add(f"realloc:{dev}", t("history.realloc", lang, dev=dev), t("history.unit.sectors", lang), realloc)
+            add(f"disk_temp:{dev}", t("history.disk_temp", lang, dev=dev), "°C",
+                [(r.timestamp, r.per_disk("disk_temps").get(dev)) for r in records])
+
+        report = predict_records(records, lang)
+        return {
+            "data_points": report.data_points,
+            "summary": report.summary,
+            "series": series,
+            "predictions": [
+                {"component": p.component, "risk": p.risk, "description": p.description, "trend": p.trend}
+                for p in report.predictions
+            ],
+        }
 
     # ------------------------------------------------------------------
     # Repair and rollback

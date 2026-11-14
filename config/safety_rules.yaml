@@ -34,69 +34,88 @@ actions:
   read_smart:
     risk: green
     description: "Чтение S.M.A.R.T. данных диска"
+    description_en: "Read disk S.M.A.R.T. data"
 
   read_logs:
     risk: green
     description: "Чтение системных логов"
+    description_en: "Read system logs"
 
   scan_hardware:
     risk: green
     description: "Сбор информации об оборудовании"
+    description_en: "Collect hardware information"
 
   scan_malware:
     risk: green
     description: "Проверка на вредоносное ПО (только чтение)"
+    description_en: "Malware scan (read-only)"
 
   benchmark_cpu:
     risk: green
     description: "Тест производительности CPU"
+    description_en: "CPU benchmark"
 
   benchmark_memory:
     risk: green
     description: "Тест производительности ОЗУ"
+    description_en: "Memory benchmark"
 
   # Repair — yellow
   fix_filesystem:
     risk: yellow
     description: "Исправление ошибок файловой системы"
+    description_en: "Repair filesystem errors"
 
   clean_temp_files:
     risk: yellow
     description: "Удаление временных файлов"
+    description_en: "Remove temporary files"
 
   fix_registry_errors:
     risk: yellow
     description: "Исправление ошибок реестра Windows"
+    description_en: "Repair Windows registry errors"
 
   remove_malware:
     risk: yellow
     description: "Удаление обнаруженных вирусов"
+    description_en: "Remove detected malware"
 
   # Bootloader & Partition — red
   fix_bootloader:
     risk: red
     description: "Восстановление загрузчика ОС"
+    description_en: "Repair the OS bootloader"
 
   resize_partition:
     risk: red
     description: "Изменение размера раздела"
+    description_en: "Resize a partition"
 
   restore_mbr:
     risk: red
     description: "Восстановление MBR/GPT"
+    description_en: "Restore MBR/GPT"
 
   # Dangerous — black (expert only)
   flash_bios:
     risk: black
     description: "Перепрошивка BIOS/UEFI"
+    description_en: "Flash BIOS/UEFI"
     blocked_reason: "Перепрошивка BIOS без резервирования может привести к неработоспособности ПК"
+    blocked_reason_en: "Flashing the BIOS without a backup can leave the PC unusable"
 
   wipe_disk:
     risk: black
     description: "Полное стирание диска"
+    description_en: "Wipe the whole disk"
     blocked_reason: "Безвозвратное удаление всех данных"
+    blocked_reason_en: "All data would be lost permanently"
 
   modify_firmware:
     risk: black
     description: "Изменение прошивки устройств"
+    description_en: "Modify device firmware"
     blocked_reason: "Может привести к выходу оборудования из строя"
+    blocked_reason_en: "Can damage the hardware"

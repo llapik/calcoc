@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Generator
 
 from src.core.config import Config
+from src.core.i18n import t
 from src.core.logger import get_logger
 from src.ai.llama_backend import LlamaBackend
 from src.ai.openrouter import OpenRouterBackend
@@ -242,24 +243,6 @@ class AIEngine:
             return f"Релевантная информация из базы знаний:\n{chr(10).join(context_parts)}\n\n{prompt}"
         return prompt
 
-    @staticmethod
-    def _rule_based_response(message: str) -> str:
-        """Provide basic responses when AI is unavailable."""
-        msg_lower = message.lower()
-        if any(w in msg_lower for w in ["диагностик", "скан", "проверк", "scan", "diagnos"]):
-            return (
-                "AI-модель не загружена. Для запуска диагностики нажмите кнопку "
-                "«Полная диагностика» или введите /scan. "
-                "Результаты будут показаны без AI-анализа."
-            )
-        if any(w in msg_lower for w in ["апгрейд", "upgrade", "улучш"]):
-            return (
-                "AI-модель не загружена. После диагностики (/scan) перейдите на вкладку «Апгрейд». "
-                "Для AI-рекомендаций настройте OpenRouter в ⚙️ Настройках."
-            )
-        return (
-            "AI-модель не загружена (недостаточно ресурсов или модель не найдена). "
-            "Доступны базовые функции: диагностика (/scan), анализ проблем, рекомендации по апгрейду. "
-            "Для AI-анализа: подключитесь к интернету и включите OpenRouter в ⚙️ Настройках, "
-            "или запустите на ПК с ≥4 ГБ ОЗУ и скопируйте GGUF-модель в папку models/."
-        )
+    def _rule_based_response(self, message: str) -> str:
+        """What the chat says when no AI backend is available."""
+        return t("ai.unavailable", self.config.language)

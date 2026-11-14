@@ -14,6 +14,7 @@ from src.core.session import AppSession
 from src.repair.executor import RepairExecutor
 from src.rollback.backup import BackupManager
 from src.rollback.journal import Journal
+from src.telemetry.collector import TelemetryCollector
 
 _SRC_DIR = Path(__file__).resolve().parent.parent
 
@@ -42,7 +43,11 @@ def create_app(config: Config | None = None, demo: str | None = None) -> Flask:
     journal = Journal(config.file_path("journal_db"))
     backups = BackupManager(config.path("backup_dir"), journal)
     executor = RepairExecutor(config, journal, backups)
-    app.config["SESSION"] = AppSession(config, executor, demo=demo or os.environ.get("CALCOC_DEMO") or None)
+    app.config["SESSION"] = AppSession(
+        config, executor,
+        demo=demo or os.environ.get("CALCOC_DEMO") or None,
+        telemetry=TelemetryCollector(config.file_path("telemetry_db")),
+    )
 
     register_routes(app)
 

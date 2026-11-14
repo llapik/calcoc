@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from src.core.config import Config
+from src.core.i18n import t
 from src.core.logger import get_logger
 
 log = get_logger("safety.classifier")
@@ -28,8 +29,15 @@ class SafetyClassifier:
         self._risk_levels = self.rules.get("risk_levels", {})
         self._actions = self.rules.get("actions", {})
 
+    def _text(self, definition: dict, field: str, default: str = "") -> str:
+        """Localised text from a rules entry: ``<field>_en`` in English mode, ``<field>`` otherwise."""
+        if self.config.language == "en" and definition.get(f"{field}_en"):
+            return definition[f"{field}_en"]
+        return definition.get(field, default)
+
     def check(self, action: str) -> SafetyVerdict:
         """Check if an action is allowed and what precautions are needed."""
+        lang = self.config.language
         action_def = self._actions.get(action)
         if action_def is None:
             # Unknown action — treat as yellow by default
@@ -37,7 +45,7 @@ class SafetyClassifier:
                 action=action,
                 risk_level="yellow",
                 allowed=True,
-                reason="Действие не найдено в правилах — применены умеренные ограничения",
+                reason=t("safety.unknown", lang),
                 requires_confirmation=True,
                 requires_backup=True,
             )
@@ -50,26 +58,23 @@ class SafetyClassifier:
 
         # Determine if action is allowed
         allowed = True
-        reason = action_def.get("description", "")
+        reason = self._text(action_def, "description")
 
         if risk == "black":
             if not expert_mode:
                 allowed = False
-                reason = action_def.get(
-                    "blocked_reason",
-                    "Действие заблокировано — включите режим эксперта",
-                )
+                reason = self._text(action_def, "blocked_reason", t("safety.expert_only", lang))
             else:
-                reason = f"ОПАСНО (эксперт): {reason}"
+                reason = t("safety.danger", lang, reason=reason)
 
         elif risk == "red" and max_allowed not in ("red", "black"):
             if not expert_mode:
                 allowed = False
-                reason = f"Действие требует повышения уровня допуска (текущий: {max_allowed})"
+                reason = t("safety.needs_level", lang)
 
         requires_confirmation = level_def.get("requires_confirmation", True)
         requires_backup = level_def.get("auto_backup", True)
-        label = level_def.get("label", risk)
+        label = self._text(level_def, "label", risk)
 
         if safety_cfg.get("require_confirmation", True):
             requires_confirmation = requires_confirmation or risk != "green"
@@ -89,7 +94,7 @@ class SafetyClassifier:
 
     def describe(self, action: str) -> str:
         """Human-readable description of an action (empty if unknown)."""
-        return self._actions.get(action, {}).get("description", "")
+        return self._text(self._actions.get(action, {}), "description")
 
     def get_risk_color(self, risk_level: str) -> str:
         """Return a CSS color for the risk level."""

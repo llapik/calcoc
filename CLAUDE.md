@@ -52,7 +52,8 @@ calcoc/
 │   │   ├── log_analyzer.py      # System log error patterns
 │   │   ├── performance.py       # Bottleneck detection
 │   │   ├── malware.py           # ClamAV integration
-│   │   └── problems.py          # Unified problem report
+│   │   ├── problems.py          # Unified problem report
+│   │   └── health.py            # Dashboard model: score, component cards, meters
 │   ├── ai/                      # AI inference layer
 │   │   ├── engine.py            # Unified AI facade
 │   │   ├── agent.py             # Tool-calling loop, yields UI events
@@ -84,7 +85,9 @@ calcoc/
 │       ├── templates/index.html # Single-page chat UI
 │       └── static/
 │           ├── css/style.css    # Dark theme styles
-│           └── js/app.js        # Frontend logic
+│           └── js/
+│               ├── i18n.js      # UI strings (ru/en), T() and data-i18n
+│               └── app.js       # Frontend logic: chat, dashboard, charts
 ├── data/
 │   ├── components_db.json       # Hardware price database
 │   ├── demo/*.json              # Demo scenarios (snapshot + problems + sandbox files)
@@ -98,7 +101,8 @@ calcoc/
     ├── test_ai_engine.py
     ├── test_telemetry.py
     ├── test_repair.py           # End-to-end repair pipeline via demo scenarios
-    └── test_agent.py            # Agent loop with a scripted model, toolbox, stream parser
+    ├── test_agent.py            # Agent loop with a scripted model, toolbox, stream parser
+    └── test_dashboard.py        # Health model, telemetry history, predictions, translations
 ```
 
 ## Development Setup
@@ -197,6 +201,8 @@ All API routes are in `src/web/routes.py`:
 - `POST /api/chat` — AI chat (JSON)
 - `POST /api/chat/stream` — AI chat (SSE stream of agent events: token, tool_start/end, fix_proposal, …)
 - `GET /api/scan`, `GET /api/problems` — last results without re-running
+- `GET /api/health` — dashboard model (score, component cards, meters)
+- `GET /api/history` — telemetry series for charts + trend predictions
 - `POST /api/safety/check` — check action risk level
 - `POST /api/upgrade` — upgrade recommendations
 - `POST /api/repair` — fix a problem by id (`dry_run` for the plan, `confirm` to execute)
@@ -237,5 +243,12 @@ All API routes are in `src/web/routes.py`:
 - Every repair action must go through `RepairExecutor` (which calls `SafetyClassifier.check()`); never call repair modules directly from routes or AI code.
 - Every destructive operation must create a backup via `BackupManager` first.
 - Never recommend BIOS flashing without explicit user consent + backup.
-- All user-facing text should support Russian (primary) and English.
+- All user-facing text should support Russian (primary) and English: backend strings go through
+  `src/core/i18n.t()`, UI strings through `T()` in `static/js/i18n.js`; `safety_rules.yaml` and demo
+  scenarios carry both languages. Tests fail if a key is missing in one language. (Known gap: the
+  upgrade advisor and the AI system prompts for local models are still Russian-only.)
+- Dashboard thresholds and statuses are decided server-side in `analysis/health.py` and
+  `analysis/performance.py`; the frontend only draws. Status colours (good/warning/serious/critical)
+  always come with an icon and a label.
+- Predictions describe trends (what grows, how fast); never invent a failure date.
 - GGUF model files (*.gguf) are never committed to git — they live on the USB data partition.

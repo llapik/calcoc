@@ -182,7 +182,9 @@
    "description": {
     "ru": "В журнале ядра: «ata1.00: failed command: READ DMA», «Buffer I/O error on dev sda2». Диск не может прочитать часть секторов.",
     "en": "Kernel log: “ata1.00: failed command: READ DMA”, “Buffer I/O error on dev sda2”. The drive cannot read some sectors."
-   }
+   },
+   "component": "disk",
+   "target": "/dev/sda"
   }
  ],
  "on_fix": {
@@ -224,5 +226,247 @@
     "size_kb": 128
    }
   ]
- }
+ },
+ "history": [
+  {
+   "days_ago": 330,
+   "cpu_temp": 52.0,
+   "cpu_usage": 30.0,
+   "ram": 72.0,
+   "disks": {
+    "/dev/sda": {
+     "temp": 41,
+     "realloc": 0,
+     "pending": 0,
+     "hours": 38610,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 300,
+   "cpu_temp": 53.25,
+   "cpu_usage": 35.2,
+   "ram": 74.4,
+   "disks": {
+    "/dev/sda": {
+     "temp": 41,
+     "realloc": 0,
+     "pending": 0,
+     "hours": 38850,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 270,
+   "cpu_temp": 51.800000000000004,
+   "cpu_usage": 24.8,
+   "ram": 71.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 42,
+     "realloc": 0,
+     "pending": 0,
+     "hours": 39090,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 240,
+   "cpu_temp": 53.05,
+   "cpu_usage": 30.1,
+   "ram": 74.1,
+   "disks": {
+    "/dev/sda": {
+     "temp": 42,
+     "realloc": 8,
+     "pending": 0,
+     "hours": 39330,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 210,
+   "cpu_temp": 54.3,
+   "cpu_usage": 35.1,
+   "ram": 76.5,
+   "disks": {
+    "/dev/sda": {
+     "temp": 43,
+     "realloc": 8,
+     "pending": 0,
+     "hours": 39570,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 180,
+   "cpu_temp": 52.85,
+   "cpu_usage": 24.7,
+   "ram": 73.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 43,
+     "realloc": 16,
+     "pending": 0,
+     "hours": 39810,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 150,
+   "cpu_temp": 54.1,
+   "cpu_usage": 30.2,
+   "ram": 76.3,
+   "disks": {
+    "/dev/sda": {
+     "temp": 43,
+     "realloc": 40,
+     "pending": 0,
+     "hours": 40050,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 120,
+   "cpu_temp": 55.25,
+   "cpu_usage": 35.1,
+   "ram": 78.60000000000001,
+   "disks": {
+    "/dev/sda": {
+     "temp": 44,
+     "realloc": 96,
+     "pending": 8,
+     "hours": 40290,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 90,
+   "cpu_temp": 53.9,
+   "cpu_usage": 24.7,
+   "ram": 75.8,
+   "disks": {
+    "/dev/sda": {
+     "temp": 44,
+     "realloc": 210,
+     "pending": 8,
+     "hours": 40530,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 60,
+   "cpu_temp": 55.25,
+   "cpu_usage": 30.3,
+   "ram": 78.39999999999999,
+   "disks": {
+    "/dev/sda": {
+     "temp": 44,
+     "realloc": 480,
+     "pending": 16,
+     "hours": 40770,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 45,
+   "cpu_temp": 56.3,
+   "cpu_usage": 35.0,
+   "ram": 80.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 45,
+     "realloc": 690,
+     "pending": 16,
+     "hours": 40890,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 30,
+   "cpu_temp": 54.95,
+   "cpu_usage": 24.6,
+   "ram": 77.9,
+   "disks": {
+    "/dev/sda": {
+     "temp": 45,
+     "realloc": 980,
+     "pending": 24,
+     "hours": 41010,
+     "healthy": true
+    }
+   }
+  },
+  {
+   "days_ago": 21,
+   "cpu_temp": 56.300000000000004,
+   "cpu_usage": 30.4,
+   "ram": 80.5,
+   "disks": {
+    "/dev/sda": {
+     "temp": 46,
+     "realloc": 1210,
+     "pending": 32,
+     "hours": 41082,
+     "healthy": false
+    }
+   }
+  },
+  {
+   "days_ago": 14,
+   "cpu_temp": 57.349999999999994,
+   "cpu_usage": 35.0,
+   "ram": 82.8,
+   "disks": {
+    "/dev/sda": {
+     "temp": 46,
+     "realloc": 1450,
+     "pending": 40,
+     "hours": 41138,
+     "healthy": false
+    }
+   }
+  },
+  {
+   "days_ago": 7,
+   "cpu_temp": 56.0,
+   "cpu_usage": 24.6,
+   "ram": 80.0,
+   "disks": {
+    "/dev/sda": {
+     "temp": 46,
+     "realloc": 1690,
+     "pending": 40,
+     "hours": 41194,
+     "healthy": false
+    }
+   }
+  },
+  {
+   "days_ago": 3,
+   "cpu_temp": 57.35,
+   "cpu_usage": 30.5,
+   "ram": 82.7,
+   "disks": {
+    "/dev/sda": {
+     "temp": 47,
+     "realloc": 1810,
+     "pending": 48,
+     "hours": 41226,
+     "healthy": false
+    }
+   }
+  }
+ ]
 }

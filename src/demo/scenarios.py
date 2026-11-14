@@ -20,6 +20,7 @@ from src.analysis.problems import Problem, Severity
 from src.core.i18n import pick
 from src.core.logger import get_logger
 from src.diagnostics.collector import SystemSnapshot
+from src.telemetry.collector import TelemetryRecord
 
 log = get_logger("demo")
 
@@ -121,8 +122,32 @@ class DemoSession:
                 auto_fixable=bool(action),
                 fix_action=action,
                 fix_params=params,
+                component=raw.get("component", ""),
+                target=raw.get("target", ""),
             ))
         return result
+
+    def history(self, now: float) -> list[TelemetryRecord]:
+        """The scenario's past measurements, oldest first (the present comes from :meth:`snapshot`)."""
+        records = []
+        for h in sorted(self._raw.get("history", []), key=lambda h: -h["days_ago"]):
+            disks: dict = h.get("disks", {})
+            records.append(TelemetryRecord(
+                timestamp=now - h["days_ago"] * 86400,
+                machine_id=f"demo:{self.id}",
+                cpu_temp=h.get("cpu_temp"),
+                cpu_usage=h.get("cpu_usage"),
+                ram_usage_pct=h.get("ram"),
+                gpu_temp=h.get("gpu_temp"),
+                disk_temps=json.dumps({dev: d["temp"] for dev, d in disks.items() if "temp" in d}),
+                smart_status=json.dumps({dev: d["healthy"] for dev, d in disks.items() if "healthy" in d}),
+                power_on_hours=json.dumps({dev: d["hours"] for dev, d in disks.items() if "hours" in d}),
+                smart_attrs=json.dumps({
+                    dev: {attr: d[name] for attr, name in (("5", "realloc"), ("197", "pending")) if name in d}
+                    for dev, d in disks.items()
+                }),
+            ))
+        return records
 
     def cleanup_dirs(self) -> list[str]:
         """Sandbox directories that stand in for the scenario's temp folders."""

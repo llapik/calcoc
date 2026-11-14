@@ -113,13 +113,26 @@ def register_routes(app: Flask) -> None:
         report = session.ensure_problems()
         return jsonify({"status": "ok", "summary": report.summary, "problems": session.problems_json()})
 
+    @app.route("/api/health", methods=["GET"])
+    def api_health():
+        """Dashboard model for the last scan: score, component cards, meters."""
+        session = _session()
+        if session.snapshot is None:
+            return _error("scan.required", 404)
+        return jsonify({"status": "ok", "health": session.health_json()})
+
+    @app.route("/api/history", methods=["GET"])
+    def api_history():
+        """Measurements over time and trend-based predictions."""
+        return jsonify({"status": "ok", "history": _session().history_json()})
+
     @app.route("/api/performance", methods=["POST"])
     def api_performance():
         """Run performance analysis."""
         snapshot = _session().snapshot
         if snapshot is None:
             return _error("scan.required")
-        report = analyze_performance(snapshot)
+        report = analyze_performance(snapshot, _lang())
         return jsonify({
             "status": "ok",
             "score": report.score,
@@ -324,8 +337,9 @@ def register_routes(app: Flask) -> None:
         engine = _engine()
         reload_ai = False
 
-        if data.get("language") in ("ru", "en"):
+        if data.get("language") in ("ru", "en") and data["language"] != config.language:
             config.set_user("app", "language", data["language"])
+            _session().problems = None  # texts were produced in the previous language
         if "expert_mode" in data:
             config.settings.setdefault("app", {})["expert_mode"] = bool(data["expert_mode"])
         if isinstance(data.get("openrouter_api_key"), str) and data["openrouter_api_key"].strip():

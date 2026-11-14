@@ -73,7 +73,7 @@ class TestPerformanceAnalysis:
     def test_low_ram(self):
         snapshot = self._make_snapshot(ram_total=2048, ram_avail=200)
         report = analyze_performance(snapshot)
-        warnings = [b for b in report.bottlenecks if b.component == "ram"]
+        warnings = [b for b in report.bottlenecks if b.component == "memory"]
         assert len(warnings) > 0
 
     def test_failing_disk(self):

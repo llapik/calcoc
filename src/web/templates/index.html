@@ -8,170 +8,138 @@
 </head>
 <body>
     <div id="app">
-        <!-- Header -->
         <header class="header">
             <div class="header-left">
                 <h1 class="logo">🔧 {{ app_name }}</h1>
                 <span class="badge" id="ai-badge">AI: {{ ai_backend }}</span>
                 {% if expert_mode %}
-                <span class="badge badge-red">ЭКСПЕРТ</span>
+                <span class="badge badge-red" data-i18n="badge.expert"></span>
                 {% endif %}
-                <span class="badge badge-demo" id="demo-badge" {% if not demo_id %}hidden{% endif %}>ДЕМО</span>
+                <span class="badge badge-demo" id="demo-badge" data-i18n="badge.demo" {% if not demo_id %}hidden{% endif %}></span>
             </div>
             <div class="header-right">
-                <select id="demo-select" title="Источник данных" onchange="setDemo(this.value)">
-                    <option value="">🖥️ Этот компьютер</option>
+                <select id="demo-select" data-i18n-title="source.title" onchange="setDemo(this.value)">
+                    <option value="" data-i18n="source.this_pc"></option>
                     {% for s in scenarios %}
-                    <option value="{{ s.id }}" title="{{ s.description }}" {% if s.id == demo_id %}selected{% endif %}>Демо: {{ s.title }}</option>
+                    <option value="{{ s.id }}" data-title="{{ s.title }}" title="{{ s.description }}" {% if s.id == demo_id %}selected{% endif %}>{{ s.title }}</option>
                     {% endfor %}
                 </select>
                 <select id="lang-select" onchange="setLanguage(this.value)">
                     <option value="ru" {% if language == 'ru' %}selected{% endif %}>Русский</option>
                     <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
                 </select>
-                <button class="btn btn-sm" onclick="openSettings()">⚙️</button>
+                <button class="btn btn-sm" onclick="openSettings()" data-i18n-title="settings.title">⚙️</button>
             </div>
         </header>
 
-        <!-- Main layout -->
         <div class="main-layout">
-            <!-- Sidebar -->
             <aside class="sidebar">
                 <nav>
-                    <button class="nav-btn active" onclick="showPanel('chat')" id="nav-chat">
-                        💬 Чат с AI
-                    </button>
-                    <button class="nav-btn" onclick="showPanel('diagnostics')" id="nav-diagnostics">
-                        🔍 Диагностика
-                    </button>
-                    <button class="nav-btn" onclick="showPanel('problems')" id="nav-problems">
-                        ⚠️ Проблемы
-                    </button>
-                    <button class="nav-btn" onclick="showPanel('upgrade')" id="nav-upgrade">
-                        📈 Апгрейд
-                    </button>
-                    <button class="nav-btn" onclick="showPanel('history')" id="nav-history">
-                        📋 Журнал
-                    </button>
+                    <button class="nav-btn active" onclick="showPanel('chat')" id="nav-chat">💬 <span data-i18n="nav.chat"></span></button>
+                    <button class="nav-btn" onclick="showPanel('health')" id="nav-health">🩺 <span data-i18n="nav.health"></span>
+                        <span class="nav-dot" id="nav-health-dot" hidden></span></button>
+                    <button class="nav-btn" onclick="showPanel('problems')" id="nav-problems">⚠️ <span data-i18n="nav.problems"></span>
+                        <span class="nav-count" id="nav-problems-count" hidden></span></button>
+                    <button class="nav-btn" onclick="showPanel('upgrade')" id="nav-upgrade">📈 <span data-i18n="nav.upgrade"></span></button>
+                    <button class="nav-btn" onclick="showPanel('history')" id="nav-history">📋 <span data-i18n="nav.journal"></span></button>
                 </nav>
-
                 <div class="sidebar-actions">
-                    <button class="btn btn-primary btn-full" onclick="runScan()">
-                        🔍 Полная диагностика
-                    </button>
+                    <button class="btn btn-primary btn-full" onclick="runScan()">🔍 <span data-i18n="action.scan"></span></button>
                 </div>
             </aside>
 
-            <!-- Content area -->
             <main class="content">
-                <!-- Chat panel -->
                 <div class="panel active" id="panel-chat">
                     <div class="chat-container">
                         <div class="chat-messages" id="chat-messages">
-                            <div class="message message-system">
-                                Добро пожаловать в AI PC Repair & Optimizer!
-                                Опишите, что не так с компьютером, — я сам проведу диагностику,
-                                объясню причины и предложу исправления. Ничего не меняется без вашего подтверждения.
-                            </div>
+                            <div class="message message-system" data-i18n="chat.welcome"></div>
                         </div>
                         <div class="chat-input-area">
                             <div class="chat-suggestions">
-                                <button class="suggestion" onclick="sendMessage('/scan')">🔍 Диагностика</button>
-                                <button class="suggestion" onclick="sendMessage('/upgrade')">📈 Апгрейд</button>
-                                <button class="suggestion" onclick="sendMessage('Проверь мой компьютер и расскажи, что с ним не так')">🩺 Проверь мой ПК</button>
-                                <button class="suggestion" onclick="sendMessage('Как ускорить компьютер?')">🚀 Оптимизация</button>
+                                <button class="suggestion" data-suggest="chat.s.check.msg">🩺 <span data-i18n="chat.s.check"></span></button>
+                                <button class="suggestion" data-suggest="chat.s.fix.msg">🛠️ <span data-i18n="chat.s.fix"></span></button>
+                                <button class="suggestion" data-suggest="chat.s.speed.msg">🚀 <span data-i18n="chat.s.speed"></span></button>
+                                <button class="suggestion" data-suggest="chat.s.upgrade.msg">📈 <span data-i18n="chat.s.upgrade"></span></button>
                             </div>
                             <form class="chat-form" onsubmit="handleSubmit(event)">
-                                <input type="text" id="chat-input" placeholder="Введите сообщение или команду..."
-                                       autocomplete="off" autofocus>
-                                <button type="submit" class="btn btn-primary">Отправить</button>
+                                <input type="text" id="chat-input" data-i18n-placeholder="chat.placeholder" autocomplete="off" autofocus>
+                                <button type="submit" class="btn btn-primary" data-i18n="action.send"></button>
                             </form>
                         </div>
                     </div>
                 </div>
 
-                <!-- Diagnostics panel -->
-                <div class="panel" id="panel-diagnostics">
-                    <h2>Диагностика системы</h2>
-                    <div id="diag-results" class="results-area">
-                        <p class="placeholder">Нажмите "Полная диагностика" для начала сканирования.</p>
+                <div class="panel" id="panel-health">
+                    <div id="health-results" class="results-area">
+                        <p class="placeholder" data-i18n="health.empty"></p>
                     </div>
                 </div>
 
-                <!-- Problems panel -->
                 <div class="panel" id="panel-problems">
-                    <h2>Обнаруженные проблемы</h2>
+                    <h2 data-i18n="problems.title"></h2>
                     <div id="problems-results" class="results-area">
-                        <p class="placeholder">Сначала выполните диагностику.</p>
+                        <p class="placeholder" data-i18n="problems.empty"></p>
                     </div>
                 </div>
 
-                <!-- Upgrade panel -->
                 <div class="panel" id="panel-upgrade">
-                    <h2>Рекомендации по апгрейду</h2>
+                    <h2 data-i18n="upgrade.title"></h2>
                     <div id="upgrade-results" class="results-area">
-                        <p class="placeholder">Сначала выполните диагностику.</p>
+                        <p class="placeholder" data-i18n="problems.empty"></p>
                     </div>
                 </div>
 
-                <!-- History panel -->
                 <div class="panel" id="panel-history">
                     <div class="panel-head">
-                        <h2>Журнал операций</h2>
-                        <button class="btn btn-sm" onclick="purgeBackups()"
-                                title="Удалить резервные копии и освободить место. Откат этих операций станет невозможен">
-                            🗑️ Удалить резервные копии
-                        </button>
+                        <h2 data-i18n="journal.title"></h2>
+                        <button class="btn btn-sm" onclick="purgeBackups()" data-i18n-title="action.purge.hint">🗑️ <span data-i18n="action.purge"></span></button>
                     </div>
                     <div id="history-results" class="results-area">
-                        <p class="placeholder">Журнал операций пуст.</p>
+                        <p class="placeholder" data-i18n="journal.empty"></p>
                     </div>
                 </div>
             </main>
         </div>
 
-        <!-- Settings modal -->
         <div class="modal" id="settings-modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>Настройки</h3>
+                    <h3 data-i18n="settings.title"></h3>
                     <button class="btn-close" onclick="closeSettings()">×</button>
                 </div>
                 <div class="modal-body">
                     <div class="setting-group">
-                        <label>AI-бэкенд:</label>
+                        <label for="setting-backend" data-i18n="settings.backend"></label>
                         <select id="setting-backend" onchange="updateSetting('ai_backend', this.value)">
-                            <option value="llama">Локальный (llama.cpp)</option>
-                            <option value="openrouter">OpenRouter (облако)</option>
-                            <option value="none">Отключён</option>
+                            <option value="llama" data-i18n="settings.backend.llama"></option>
+                            <option value="openrouter" data-i18n="settings.backend.openrouter"></option>
+                            <option value="none" data-i18n="settings.backend.none"></option>
                         </select>
                     </div>
                     <div class="setting-group">
-                        <label for="setting-key">Ключ OpenRouter:</label>
+                        <label for="setting-key" data-i18n="settings.key"></label>
                         <input type="password" id="setting-key" autocomplete="off" spellcheck="false">
-                        <label for="setting-model">Модель:</label>
+                        <label for="setting-model" data-i18n="settings.model"></label>
                         <input type="text" id="setting-model" autocomplete="off" spellcheck="false">
-                        <p class="setting-hint">Для AI-агента нужна модель с вызовом инструментов. Модели с суффиксом
-                            <code>:free</code> работают на бесплатном аккаунте. Ключ хранится только на этом компьютере.</p>
-                        <button class="btn btn-sm btn-primary" onclick="saveOpenRouter()">Сохранить и включить</button>
+                        <p class="setting-hint" data-i18n="settings.key.hint"></p>
+                        <button class="btn btn-sm btn-primary" onclick="saveOpenRouter()" data-i18n="action.save_enable"></button>
                         <span class="setting-hint" id="setting-key-status"></span>
                     </div>
                     <div class="setting-group">
                         <label>
                             <input type="checkbox" id="setting-expert" onchange="updateSetting('expert_mode', this.checked)">
-                            Режим эксперта
+                            <span data-i18n="settings.expert"></span>
                         </label>
-                        <p class="setting-hint">Разблокирует опасные операции (красный/чёрный уровень)</p>
+                        <p class="setting-hint" data-i18n="settings.expert.hint"></p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Repair confirmation modal -->
         <div class="modal" id="repair-modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3 id="repair-title">Исправление</h3>
+                    <h3 data-i18n="repair.title"></h3>
                     <button class="btn-close" onclick="closeRepair()">×</button>
                 </div>
                 <div class="modal-body">
@@ -179,25 +147,27 @@
                     <p class="repair-plan" id="repair-plan"></p>
                     <p class="setting-hint" id="repair-note"></p>
                     <ul class="repair-steps">
-                        <li>✔ Проверка по правилам безопасности</li>
-                        <li id="repair-step-backup">✔ Резервная копия перед изменением</li>
-                        <li>✔ Запись в журнал с возможностью отката</li>
+                        <li data-i18n="repair.step.safety"></li>
+                        <li id="repair-step-backup" data-i18n="repair.step.backup"></li>
+                        <li data-i18n="repair.step.journal"></li>
                     </ul>
                     <div class="modal-actions">
-                        <button class="btn" onclick="closeRepair()">Отмена</button>
-                        <button class="btn btn-primary" id="repair-confirm">Выполнить</button>
+                        <button class="btn" onclick="closeRepair()" data-i18n="action.cancel"></button>
+                        <button class="btn btn-primary" id="repair-confirm" data-i18n="action.run"></button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Loading overlay -->
         <div class="loading-overlay" id="loading" style="display:none">
             <div class="spinner"></div>
-            <p id="loading-text">Загрузка...</p>
+            <p id="loading-text"></p>
         </div>
+
+        <div class="chart-tip" id="chart-tip" hidden></div>
     </div>
 
+    <script src="/static/js/i18n.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

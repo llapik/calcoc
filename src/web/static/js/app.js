@@ -1,4 +1,4 @@
-/* AI PC Repair & Optimizer — Frontend Application */
+/* AI PC Repair & Optimizer — Frontend Application (strings live in i18n.js) */
 
 const API = {
     async post(url, data = {}) {
@@ -15,6 +15,23 @@ const API = {
     },
 };
 
+const RISK_ICONS = { green: '🟢', yellow: '🟡', red: '🔴', black: '⚫' };
+const STATUS_ICONS = { good: '✔', warning: '⚠', serious: '▲', critical: '✖' };
+
+function $(id) { return document.getElementById(id); }
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+}
+
+function placeholder(key) { return `<p class="placeholder">${escapeHtml(T(key))}</p>`; }
+
+function statusChip(status) {
+    return `<span class="status-chip status-${status}">${STATUS_ICONS[status] || ''} ${escapeHtml(T('status.' + status))}</span>`;
+}
+
 /* ============================================================
    Panel navigation
    ============================================================ */
@@ -22,11 +39,8 @@ const API = {
 function showPanel(name) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-
-    const panel = document.getElementById('panel-' + name);
-    const btn = document.getElementById('nav-' + name);
-    if (panel) panel.classList.add('active');
-    if (btn) btn.classList.add('active');
+    $('panel-' + name)?.classList.add('active');
+    $('nav-' + name)?.classList.add('active');
     if (name === 'history') loadJournal();
 }
 
@@ -35,23 +49,26 @@ function showPanel(name) {
    ============================================================ */
 
 function addMessage(text, type = 'ai') {
-    const container = document.getElementById('chat-messages');
     const div = document.createElement('div');
     div.className = 'message message-' + type;
     div.textContent = text;
-    container.appendChild(div);
+    $('chat-messages').appendChild(div);
     scrollChat();
     return div;
 }
 
 function scrollChat() {
-    const container = document.getElementById('chat-messages');
+    const container = $('chat-messages');
     container.scrollTop = container.scrollHeight;
+}
+
+function reportError(err) {
+    addMessage(T('error.generic', { msg: err.message || err }), 'error');
 }
 
 function handleSubmit(e) {
     e.preventDefault();
-    const input = document.getElementById('chat-input');
+    const input = $('chat-input');
     const msg = input.value.trim();
     if (!msg) return;
     input.value = '';
@@ -123,17 +140,6 @@ function renderMarkdown(src) {
     return out.join('');
 }
 
-const TOOL_LABELS = {
-    scan_system: 'Диагностика системы',
-    list_problems: 'Просмотр найденных проблем',
-    get_component_details: 'Чтение данных компонента',
-    propose_fix: 'Подготовка исправления',
-    get_upgrade_advice: 'Подбор апгрейда',
-    get_journal: 'Чтение журнала операций',
-    propose_rollback: 'Подготовка отката',
-    search_knowledge: 'Поиск в базе знаний',
-};
-
 function addProposalCard(event) {
     const card = document.createElement('div');
     card.className = 'message proposal-card';
@@ -142,23 +148,23 @@ function addProposalCard(event) {
         ? `<span class="risk-badge risk-${event.risk_level}">${RISK_ICONS[event.risk_level] || ''} ${escapeHtml(event.risk_label)}</span>`
         : '';
     card.innerHTML = `
-        <div class="proposal-head">${isFix ? '🛠️ Предлагаю исправить' : '↩ Предлагаю откатить'} ${risk}</div>
+        <div class="proposal-head">${isFix ? '🛠️' : '↩'} ${escapeHtml(T(isFix ? 'card.fix' : 'card.rollback'))} ${risk}</div>
         <div class="title">${escapeHtml(event.title)}</div>
         ${isFix ? `<div class="desc">${escapeHtml(event.plan)}</div>` : ''}
         ${isFix && event.note ? `<div class="desc">${escapeHtml(event.note)}</div>` : ''}
-        ${isFix && event.requires_backup ? '<div class="desc">Перед изменением будет создана резервная копия.</div>' : ''}
+        ${isFix && event.requires_backup ? `<div class="desc">${escapeHtml(T('card.backup'))}</div>` : ''}
         <div class="actions">
-            <button class="btn btn-sm btn-primary" data-accept>Выполнить</button>
-            <button class="btn btn-sm" data-decline>Не сейчас</button>
+            <button class="btn btn-sm btn-primary" data-accept>${escapeHtml(T('action.run'))}</button>
+            <button class="btn btn-sm" data-decline>${escapeHtml(T('action.not_now'))}</button>
         </div>`;
-    const finish = (label) => { card.querySelector('.actions').innerHTML = `<span class="fix-note">${label}</span>`; };
-    card.querySelector('[data-decline]').onclick = () => finish('Отклонено');
+    const finish = (label) => { card.querySelector('.actions').innerHTML = `<span class="fix-note">${escapeHtml(label)}</span>`; };
+    card.querySelector('[data-decline]').onclick = () => finish(T('card.declined'));
     card.querySelector('[data-accept]').onclick = async () => {
-        finish('Выполняется…');
+        finish(T('card.running'));
         const ok = isFix ? await executeRepair(event.problem_id) : await rollbackEntry(event.journal_id);
-        finish(ok ? '✔ Выполнено' : '✖ Не выполнено — подробности ниже');
+        finish(T(ok ? 'card.done' : 'card.failed'));
     };
-    document.getElementById('chat-messages').appendChild(card);
+    $('chat-messages').appendChild(card);
     scrollChat();
 }
 
@@ -166,26 +172,16 @@ let chatBusy = false;
 
 async function sendMessage(message) {
     if (chatBusy) return;
+    showPanel('chat');
     addMessage(message, 'user');
 
-    // Handle special commands
-    if (message === '/scan') {
-        await runScan();
-        return;
-    }
-    if (message === '/upgrade') {
-        await runUpgrade();
-        return;
-    }
-
     chatBusy = true;
-    const container = document.getElementById('chat-messages');
     const steps = document.createElement('div');   // what the agent is doing
     steps.className = 'agent-steps';
-    container.appendChild(steps);
+    $('chat-messages').appendChild(steps);
     let msgDiv = null;                              // created on the first token
     let text = '';
-    const thinking = addMessage('Думаю…', 'thinking');
+    const thinking = addMessage(T('chat.thinking'), 'thinking');
 
     const handle = (event) => {
         switch (event.type) {
@@ -198,7 +194,7 @@ async function sendMessage(message) {
             const step = document.createElement('div');
             step.className = 'agent-step running';
             step.dataset.id = event.id;
-            step.textContent = TOOL_LABELS[event.name] || event.name;
+            step.textContent = T('tool.' + event.name);
             steps.appendChild(step);
             break;
         }
@@ -217,7 +213,7 @@ async function sendMessage(message) {
             refreshPanels();
             break;
         case 'error':
-            addMessage('Ошибка AI: ' + event.message, 'error');
+            addMessage(T('chat.error', { msg: event.message }), 'error');
             break;
         }
         scrollChat();
@@ -248,7 +244,7 @@ async function sendMessage(message) {
             }
         }
     } catch (err) {
-        addMessage('Ошибка подключения: ' + err.message, 'error');
+        addMessage(T('chat.conn_error', { msg: err.message }), 'error');
     } finally {
         thinking.remove();
         if (!steps.children.length) steps.remove();
@@ -257,122 +253,350 @@ async function sendMessage(message) {
     }
 }
 
-async function refreshPanels() {
-    try {
-        if (!(await API.get('/api/status')).has_scan) return;
-        const scan = await API.get('/api/scan');
-        if (scan.status === 'ok') showScan(scan);
-        await showProblems(await API.get('/api/problems'));
-    } catch {}
-}
-
 /* ============================================================
-   Diagnostics
+   Diagnostics → panels
    ============================================================ */
 
 async function runScan() {
-    showLoading('Выполняется диагностика системы...');
+    showLoading(T('loading.scan'));
     try {
         const result = await API.post('/api/scan');
+        if (result.status !== 'ok') throw new Error(result.message);
+        await API.post('/api/problems');
+        await refreshPanels();
         hideLoading();
-
-        if (result.status === 'ok') {
-            showScan(result);
-
-            // Also report in chat
-            addMessage('Диагностика завершена. Переключитесь на вкладку "Диагностика" для просмотра результатов.', 'system');
-
-            // Auto-run problems analysis
-            await runProblems();
-        } else {
-            addMessage('Ошибка диагностики: ' + (result.message || 'Неизвестная ошибка'), 'error');
-        }
+        addMessage(T('scan.done'), 'system');
+        showPanel('health');
     } catch (err) {
         hideLoading();
-        addMessage('Ошибка: ' + err.message, 'error');
+        reportError(err);
     }
 }
 
-const RISK_ICONS = { green: '🟢', yellow: '🟡', red: '🔴', black: '⚫' };
-
-function showScan(result) {
-    document.getElementById('diag-results').innerHTML = `
-        <div class="result-card">
-            <h3>Результат диагностики</h3>
-            <pre>${escapeHtml(result.summary)}</pre>
-        </div>
-    `;
-}
-
-async function runProblems() {
-    await showProblems(await API.post('/api/problems'));
-}
-
-async function showProblems(result) {
+/* Redraw everything that depends on the last scan. Cheap: uses cached results on the server. */
+async function refreshPanels() {
     try {
-        if (result.status !== 'ok') return;
-
-        const container = document.getElementById('problems-results');
-        if (!result.problems || result.problems.length === 0) {
-            container.innerHTML = '<p class="placeholder">Проблем не обнаружено!</p>';
-            return;
-        }
-
-        let html = `<p style="margin-bottom:1rem">${escapeHtml(result.summary)}</p>`;
-        for (const p of result.problems) {
-            const fixed = p.status === 'fixed';
-            let actions = '';
-            if (fixed) {
-                actions = `<div class="actions">
-                    <button class="btn btn-sm" data-rollback="${p.journal_id}">↩ Откатить</button>
-                </div>`;
-            } else if (p.fix) {
-                const f = p.fix;
-                const blocked = f.availability === 'blocked' || f.availability === 'unavailable';
-                actions = `<div class="actions">
-                    <button class="btn btn-sm btn-primary" data-fix="${escapeHtml(p.key)}" ${blocked ? 'disabled' : ''}>
-                        Исправить
-                    </button>
-                    <span class="risk-badge risk-${f.risk_level}">${RISK_ICONS[f.risk_level] || ''} ${escapeHtml(f.risk_label)}</span>
-                    ${blocked ? `<span class="fix-note">${escapeHtml(f.note)}</span>` : ''}
-                </div>`;
-            }
-            html += `
-                <div class="problem-card ${fixed ? 'fixed' : p.severity}">
-                    <div>
-                        <span class="severity severity-${fixed ? 'fixed' : p.severity}">${fixed ? '✔ исправлено' : p.severity}</span>
-                        <span class="title">${escapeHtml(p.title)}</span>
-                    </div>
-                    <div class="desc">${escapeHtml(p.description)}</div>
-                    ${actions}
-                </div>
-            `;
-        }
-        container.innerHTML = html;
+        if (!(await API.get('/api/status')).has_scan) return;
+        const [health, problems, history] = await Promise.all([
+            API.get('/api/health'), API.get('/api/problems'), API.get('/api/history'),
+        ]);
+        if (health.status === 'ok') renderHealth(health.health, history.status === 'ok' ? history.history : null);
+        showProblems(problems);
     } catch (err) {
-        addMessage('Ошибка: ' + err.message, 'error');
+        console.warn('refresh failed', err);
     }
+}
+
+function clearPanels() {
+    $('health-results').innerHTML = placeholder('health.empty');
+    $('problems-results').innerHTML = placeholder('problems.empty');
+    $('upgrade-results').innerHTML = placeholder('problems.empty');
+    $('nav-health-dot').hidden = true;
+    $('nav-problems-count').hidden = true;
+}
+
+/* ============================================================
+   Health dashboard
+   ============================================================ */
+
+const COMPONENT_ICONS = {
+    cpu: '🧠', memory: '🧮', disk: '💽', gpu: '🖥️', board: '🔌', os: '🪟', network: '🌐', security: '🛡️',
+};
+
+function renderMeter(m) {
+    return `
+        <div class="meter">
+            <div class="meter-head"><span>${escapeHtml(m.label)}</span><span class="meter-value">${escapeHtml(m.text)}</span></div>
+            <div class="meter-track status-${m.status}" role="meter" aria-valuemin="0" aria-valuemax="100"
+                 aria-valuenow="${Math.round(m.percent)}" aria-label="${escapeHtml(m.label)}: ${escapeHtml(m.text)}">
+                <div class="meter-fill" style="width:${Math.max(0, Math.min(100, m.percent))}%"></div>
+            </div>
+        </div>`;
+}
+
+function renderComponent(c) {
+    const facts = c.facts.map(([k, v]) => `<div class="fact"><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
+    // "info" findings are notes, not a state: neutral mark, never the green tick
+    const problems = c.problems.map(p => p.severity === 'info'
+        ? `<li class="status-neutral"><span class="pin">ℹ</span> ${escapeHtml(p.title)}</li>`
+        : `<li class="status-${p.status}"><span class="pin">${STATUS_ICONS[p.status]}</span> ${escapeHtml(p.title)}</li>`).join('');
+    let table = '';
+    if (c.table) {
+        const head = c.table.columns.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+        const rows = c.table.rows.map((r, i) => {
+            const st = c.table.row_status[i];
+            const cells = r.map(v => `<td>${escapeHtml(v)}</td>`).join('');
+            return `<tr class="status-${st}"><td class="pin">${st === 'good' ? '' : STATUS_ICONS[st]}</td>${cells}</tr>`;
+        }).join('');
+        table = `<details class="smart"><summary>${escapeHtml(T('health.smart_table'))}</summary>
+            <div class="table-scroll"><table><tr><th></th>${head}</tr>${rows}</table></div></details>`;
+    }
+    return `
+        <section class="component-card status-${c.status}">
+            <header>
+                <span class="component-icon">${COMPONENT_ICONS[c.kind] || '•'}</span>
+                <div class="component-title">
+                    <span class="kind">${escapeHtml(c.title)}</span>
+                    <span class="name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                </div>
+                ${statusChip(c.status)}
+            </header>
+            ${c.meters.map(renderMeter).join('')}
+            ${facts ? `<dl class="facts">${facts}</dl>` : ''}
+            ${problems ? `<ul class="component-problems">${problems}</ul>` : ''}
+            ${table}
+        </section>`;
+}
+
+function renderHealth(h, history) {
+    const counts = [];
+    if (h.counts.critical) counts.push(`<span class="status-chip status-critical">${STATUS_ICONS.critical} ${h.counts.critical} ${escapeHtml(T('health.count.critical'))}</span>`);
+    if (h.counts.warning) counts.push(`<span class="status-chip status-warning">${STATUS_ICONS.warning} ${h.counts.warning} ${escapeHtml(T('health.count.warning'))}</span>`);
+    if (h.counts.fixable) counts.push(`<span class="status-chip status-neutral">🛠️ ${h.counts.fixable} ${escapeHtml(T('health.count.fixable'))}</span>`);
+
+    let html = `
+        <section class="health-hero status-${h.status}">
+            <div class="score" aria-label="${h.score} ${escapeHtml(T('health.score'))}">
+                <span class="score-value">${h.score}</span><span class="score-max">${escapeHtml(T('health.score'))}</span>
+            </div>
+            <div class="hero-body">
+                <div class="verdict">${STATUS_ICONS[h.status]} ${escapeHtml(h.verdict)}</div>
+                <div class="hero-counts">${counts.join('')}</div>
+                <div class="hero-actions">
+                    <button class="btn btn-primary btn-sm" data-ask="chat.ask_health">💬 ${escapeHtml(T('action.ask_ai'))}</button>
+                    ${h.counts.critical + h.counts.warning ? `<button class="btn btn-sm" onclick="showPanel('problems')">${escapeHtml(T('action.show_problems'))}</button>` : ''}
+                </div>
+            </div>
+        </section>
+        <h3 class="section-title">${escapeHtml(T('health.components'))}</h3>
+        <div class="component-grid">${h.components.map(renderComponent).join('')}</div>`;
+
+    html += `<h3 class="section-title">${escapeHtml(T('health.trends'))}
+        ${history ? `<span class="section-note">${escapeHtml(T('health.points', { n: history.data_points }))}</span>` : ''}</h3>`;
+    if (!history || !history.series.length) {
+        html += placeholder('health.trends.few');
+    } else {
+        if (history.predictions.length) {
+            html += `<div class="forecast"><div class="forecast-title">${escapeHtml(T('health.forecast'))}: ${escapeHtml(history.summary)}</div><ul>`
+                + history.predictions.map(p => {
+                    const st = { critical: 'critical', high: 'serious', medium: 'warning', low: 'good' }[p.risk] || 'good';
+                    return `<li><span class="status-chip status-${st}">${STATUS_ICONS[st]} ${escapeHtml(T('risk.' + p.risk))}</span>
+                        <span>${escapeHtml(p.description)}</span></li>`;
+                }).join('') + '</ul></div>';
+        }
+        html += '<div class="chart-grid" id="chart-grid"></div>';
+    }
+
+    $('health-results').innerHTML = html;
+    if (history && history.series.length) history.series.forEach(s => $('chart-grid').appendChild(buildChart(s)));
+
+    const dot = $('nav-health-dot');
+    dot.hidden = h.status === 'good';
+    dot.className = 'nav-dot status-' + h.status;
+}
+
+/* --- Line chart: one series per chart (small multiples), crosshair + tooltip, table view --- */
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function svgEl(tag, attrs = {}) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    return el;
+}
+
+function formatDate(ms, withYear = true) {
+    return new Date(ms).toLocaleDateString(LANG, withYear
+        ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' });
+}
+
+function formatValue(v, unit) {
+    const n = Number.isInteger(v) ? v.toLocaleString(LANG) : v.toLocaleString(LANG, { maximumFractionDigits: 1 });
+    return unit ? `${n} ${unit}` : n;
+}
+
+/* Axis ticks on round numbers: 2-3 intervals with a step of 1, 2, 2.5 or 5 × 10^n. */
+function niceTicks(min, max) {
+    if (min === max) { min -= 1; max += 1; }
+    const raw = (max - min) / 2;
+    const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].find(m => m * pow >= raw) * pow;
+    const start = Math.floor(min / step) * step;
+    const ticks = [start];
+    while (ticks[ticks.length - 1] < max) ticks.push(start + ticks.length * step);
+    return ticks;
+}
+
+function buildChart(series) {
+    const W = 340, H = 150, L = 44, R = 14, TOP = 12, B = 22;
+    const pts = series.points;
+    const last = pts[pts.length - 1];
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const [x0, x1] = [Math.min(...xs), Math.max(...xs)];
+    const ticks = niceTicks(Math.min(...ys), Math.max(...ys));
+    const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const px = t => L + (x1 === x0 ? 0.5 : (t - x0) / (x1 - x0)) * (W - L - R);
+    const py = v => TOP + (1 - (v - y0) / (y1 - y0)) * (H - TOP - B);
+
+    const card = document.createElement('figure');
+    card.className = 'chart-card';
+    const cap = document.createElement('figcaption');
+    const title = document.createElement('span');
+    title.className = 'chart-title';
+    title.textContent = series.label;
+    const now = document.createElement('span');
+    now.className = 'chart-now';
+    now.textContent = formatValue(last[1], series.unit);
+    cap.append(title, now);
+    card.appendChild(cap);
+
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', tabindex: '0' });
+    svg.setAttribute('aria-label', `${series.label}: ${formatValue(pts[0][1], series.unit)} → ${formatValue(last[1], series.unit)}`);
+    for (const v of ticks) {
+        svg.appendChild(svgEl('line', { x1: L, x2: W - R, y1: py(v), y2: py(v), class: v === y0 ? 'axis' : 'grid' }));
+        const label = svgEl('text', { x: L - 6, y: py(v) + 4, 'text-anchor': 'end', class: 'tick' });
+        label.textContent = formatValue(Math.round(v * 100) / 100, '');
+        svg.appendChild(label);
+    }
+    for (const [t, anchor] of [[x0, 'start'], [x1, 'end']]) {
+        const label = svgEl('text', { x: px(t), y: H - 5, 'text-anchor': anchor, class: 'tick' });
+        label.textContent = formatDate(t, false);
+        svg.appendChild(label);
+    }
+    svg.appendChild(svgEl('path', {
+        class: 'series-area',
+        d: `M${px(xs[0])},${py(y0)} ` + pts.map(p => `L${px(p[0])},${py(p[1])}`).join(' ') + ` L${px(x1)},${py(y0)} Z`,
+    }));
+    svg.appendChild(svgEl('path', { class: 'series-line', d: pts.map((p, i) => `${i ? 'L' : 'M'}${px(p[0])},${py(p[1])}`).join(' ') }));
+    svg.appendChild(svgEl('circle', { class: 'series-dot', cx: px(last[0]), cy: py(last[1]), r: 4 }));
+
+    const cross = svgEl('line', { class: 'crosshair', y1: TOP, y2: H - B, visibility: 'hidden' });
+    const focus = svgEl('circle', { class: 'series-dot', r: 4, visibility: 'hidden' });
+    svg.append(cross, focus);
+
+    const tip = $('chart-tip');
+    const show = (i, clientX, clientY) => {
+        const p = pts[i];
+        cross.setAttribute('x1', px(p[0])); cross.setAttribute('x2', px(p[0]));
+        focus.setAttribute('cx', px(p[0])); focus.setAttribute('cy', py(p[1]));
+        cross.setAttribute('visibility', 'visible'); focus.setAttribute('visibility', 'visible');
+        tip.replaceChildren();
+        const value = document.createElement('strong');
+        value.textContent = formatValue(p[1], series.unit);
+        const date = document.createElement('span');
+        date.textContent = formatDate(p[0]);
+        tip.append(value, date);
+        tip.hidden = false;
+        const box = tip.getBoundingClientRect();
+        // beside the pointer, flipping to its left near the edge so it never covers the point
+        const left = clientX + 14 + box.width > window.innerWidth - 8 ? clientX - box.width - 14 : clientX + 14;
+        tip.style.left = Math.max(8, left) + 'px';
+        tip.style.top = Math.max(8, clientY - box.height - 12) + 'px';
+    };
+    const hide = () => {
+        cross.setAttribute('visibility', 'hidden'); focus.setAttribute('visibility', 'hidden');
+        tip.hidden = true;
+    };
+    const nearest = (clientX) => {
+        const rect = svg.getBoundingClientRect();
+        const x = (clientX - rect.left) / rect.width * W;
+        let best = 0;
+        pts.forEach((p, i) => { if (Math.abs(px(p[0]) - x) < Math.abs(px(pts[best][0]) - x)) best = i; });
+        return best;
+    };
+    let kb = pts.length - 1;
+    svg.addEventListener('pointermove', e => { kb = nearest(e.clientX); show(kb, e.clientX, e.clientY); });
+    svg.addEventListener('pointerleave', hide);
+    svg.addEventListener('blur', hide);
+    svg.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        kb = Math.max(0, Math.min(pts.length - 1, kb + (e.key === 'ArrowLeft' ? -1 : 1)));
+        const rect = svg.getBoundingClientRect();
+        show(kb, rect.left + px(pts[kb][0]) / W * rect.width, rect.top + py(pts[kb][1]) / H * rect.height);
+    });
+    card.appendChild(svg);
+
+    const note = document.createElement('div');
+    note.className = 'chart-note';
+    note.textContent = T('chart.from', { date: formatDate(x0) }) + ' · ' + formatValue(pts[0][1], series.unit) + ' → ' + formatValue(last[1], series.unit);
+    card.appendChild(note);
+
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = T('chart.table');
+    const table = document.createElement('table');
+    const headRow = table.insertRow();
+    for (const h of [T('chart.date'), series.label]) {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headRow.appendChild(th);
+    }
+    for (const p of pts) {
+        const row = table.insertRow();
+        row.insertCell().textContent = formatDate(p[0]);
+        row.insertCell().textContent = formatValue(p[1], series.unit);
+    }
+    details.append(summary, table);
+    card.appendChild(details);
+    return card;
+}
+
+/* ============================================================
+   Problems
+   ============================================================ */
+
+function showProblems(result) {
+    if (result.status !== 'ok') return;
+    const container = $('problems-results');
+    const open = result.problems.filter(p => p.status === 'open');
+    const badge = $('nav-problems-count');
+    badge.hidden = open.length === 0;
+    badge.textContent = open.length;
+
+    if (!result.problems.length) {
+        container.innerHTML = placeholder('problems.none');
+        return;
+    }
+    let html = `<p class="panel-summary">${escapeHtml(result.summary)}</p>`;
+    for (const p of result.problems) {
+        const fixed = p.status === 'fixed';
+        let actions = '';
+        if (fixed) {
+            actions = `<div class="actions"><button class="btn btn-sm" data-rollback="${p.journal_id}">↩ ${escapeHtml(T('action.rollback'))}</button></div>`;
+        } else if (p.fix) {
+            const f = p.fix;
+            const blocked = f.availability === 'blocked' || f.availability === 'unavailable';
+            actions = `<div class="actions">
+                <button class="btn btn-sm btn-primary" data-fix="${escapeHtml(p.key)}" ${blocked ? 'disabled' : ''}>${escapeHtml(T('action.fix'))}</button>
+                <span class="risk-badge risk-${f.risk_level}">${RISK_ICONS[f.risk_level] || ''} ${escapeHtml(f.risk_label)}</span>
+                ${blocked ? `<span class="fix-note">${escapeHtml(f.note)}</span>` : ''}
+            </div>`;
+        }
+        const sev = fixed ? 'fixed' : p.severity;
+        html += `
+            <div class="problem-card ${sev}">
+                <div>
+                    <span class="severity severity-${sev}">${escapeHtml(T('severity.' + sev))}</span>
+                    <span class="title">${escapeHtml(p.title)}</span>
+                </div>
+                <div class="desc">${escapeHtml(p.description)}</div>
+                ${actions}
+            </div>`;
+    }
+    container.innerHTML = html;
 }
 
 async function runUpgrade() {
-    showLoading('Анализ конфигурации...');
+    showLoading(T('loading.upgrade'));
     try {
         const result = await API.post('/api/upgrade');
         hideLoading();
-
-        if (result.status === 'ok') {
-            const container = document.getElementById('upgrade-results');
-            container.innerHTML = `
-                <div class="result-card">
-                    <pre>${escapeHtml(result.text)}</pre>
-                </div>
-            `;
-            showPanel('upgrade');
-            addMessage('Рекомендации по апгрейду готовы. Переключитесь на вкладку "Апгрейд".', 'system');
-        }
+        if (result.status !== 'ok') throw new Error(result.message);
+        $('upgrade-results').innerHTML = `<div class="result-card"><pre>${escapeHtml(result.text)}</pre></div>`;
     } catch (err) {
         hideLoading();
-        addMessage('Ошибка: ' + err.message, 'error');
+        reportError(err);
     }
 }
 
@@ -380,57 +604,55 @@ async function runUpgrade() {
    Repair: plan → confirm → execute → journal
    ============================================================ */
 
-async function fixProblem(problemId) {
+async function fixProblem(problemKey) {
     try {
-        const { outcome, message } = await API.post('/api/repair', { problem_id: problemId, dry_run: true });
-        if (!outcome) {
-            addMessage('Ошибка: ' + (message || 'проблема не найдена'), 'error');
-            return;
-        }
+        const { outcome, message } = await API.post('/api/repair', { problem_id: problemKey, dry_run: true });
+        if (!outcome) throw new Error(message);
         if (outcome.status !== 'done') {
             addMessage(outcome.message, 'error');
             showPanel('chat');
             return;
         }
         if (!outcome.requires_confirmation) {
-            await executeRepair(problemId);
+            await executeRepair(problemKey);
             return;
         }
-        const risk = document.getElementById('repair-risk');
+        const risk = $('repair-risk');
         risk.className = 'risk-badge risk-' + outcome.risk_level;
         risk.textContent = `${RISK_ICONS[outcome.risk_level] || ''} ${outcome.risk_label}`;
-        document.getElementById('repair-plan').textContent = outcome.plan;
-        document.getElementById('repair-note').textContent = outcome.message;
-        document.getElementById('repair-step-backup').hidden = !outcome.requires_backup;
-        document.getElementById('repair-confirm').onclick = async () => {
+        $('repair-plan').textContent = outcome.plan;
+        $('repair-note').textContent = outcome.message;
+        $('repair-step-backup').hidden = !outcome.requires_backup;
+        $('repair-confirm').onclick = async () => {
             closeRepair();
-            await executeRepair(problemId);
+            await executeRepair(problemKey);
         };
-        document.getElementById('repair-modal').classList.add('active');
+        $('repair-modal').classList.add('active');
     } catch (err) {
-        addMessage('Ошибка: ' + err.message, 'error');
+        reportError(err);
     }
 }
 
-async function executeRepair(problemId) {
-    showLoading('Выполняется исправление...');
+async function executeRepair(problemKey) {
+    showLoading(T('loading.repair'));
     try {
-        const { outcome } = await API.post('/api/repair', { problem_id: problemId, confirm: true });
+        const { outcome, message } = await API.post('/api/repair', { problem_id: problemKey, confirm: true });
         hideLoading();
+        if (!outcome) throw new Error(message);
         const ok = outcome.status === 'done';
-        const suffix = ok && outcome.journal_id ? ` (запись журнала #${outcome.journal_id})` : '';
+        const suffix = ok && outcome.journal_id ? ` (${T('journal.entry', { id: outcome.journal_id })})` : '';
         addMessage(outcome.message + suffix, ok ? 'system' : 'error');
         await refreshAfterChange();
         return ok;
     } catch (err) {
         hideLoading();
-        addMessage('Ошибка: ' + err.message, 'error');
+        reportError(err);
         return false;
     }
 }
 
 function closeRepair() {
-    document.getElementById('repair-modal').classList.remove('active');
+    $('repair-modal').classList.remove('active');
 }
 
 async function refreshAfterChange() {
@@ -442,42 +664,32 @@ async function refreshAfterChange() {
    Journal
    ============================================================ */
 
-const STATUS_LABELS = {
-    completed: 'выполнено', rolled_back: 'отменено', failed: 'ошибка', purged: 'копия удалена', pending: 'ожидает',
-};
-
 async function loadJournal() {
     try {
         const result = await API.get('/api/journal');
-        const container = document.getElementById('history-results');
+        const container = $('history-results');
         if (!result.entries || result.entries.length === 0) {
-            container.innerHTML = '<p class="placeholder">Журнал операций пуст.</p>';
+            container.innerHTML = placeholder('journal.empty');
             return;
         }
-        let html = '';
-        for (const e of result.entries) {
-            const when = new Date(e.timestamp * 1000).toLocaleString();
-            html += `
-                <div class="journal-entry status-${e.status}">
-                    <div class="journal-main">
-                        <span class="journal-id">#${e.id}</span>
-                        <span class="title">${escapeHtml(e.description || e.action)}</span>
-                        <span class="risk-badge risk-${e.risk_level}">${RISK_ICONS[e.risk_level] || ''}</span>
-                        <span class="journal-status">${STATUS_LABELS[e.status] || e.status}</span>
-                    </div>
-                    <div class="desc">${escapeHtml(when)}${e.target ? ' · ' + escapeHtml(e.target) : ''}</div>
-                    ${e.can_rollback ? `<div class="actions">
-                        <button class="btn btn-sm" data-rollback="${e.id}">↩ Откатить</button>
-                    </div>` : ''}
+        container.innerHTML = result.entries.map(e => `
+            <div class="journal-entry status-${e.status}">
+                <div class="journal-main">
+                    <span class="journal-id">#${e.id}</span>
+                    <span class="title">${escapeHtml(e.description || e.action)}</span>
+                    <span class="risk-badge risk-${e.risk_level}">${RISK_ICONS[e.risk_level] || ''}</span>
+                    <span class="journal-status">${escapeHtml(T('journal.' + e.status))}</span>
                 </div>
-            `;
-        }
-        container.innerHTML = html;
-    } catch {}
+                <div class="desc">${escapeHtml(new Date(e.timestamp * 1000).toLocaleString(LANG))}${e.target ? ' · ' + escapeHtml(e.target) : ''}</div>
+                ${e.can_rollback ? `<div class="actions"><button class="btn btn-sm" data-rollback="${e.id}">↩ ${escapeHtml(T('action.rollback'))}</button></div>` : ''}
+            </div>`).join('');
+    } catch (err) {
+        console.warn('journal failed', err);
+    }
 }
 
 async function rollbackEntry(entryId) {
-    showLoading('Откат операции...');
+    showLoading(T('loading.rollback'));
     try {
         const result = await API.post(`/api/journal/${entryId}/rollback`);
         hideLoading();
@@ -486,13 +698,13 @@ async function rollbackEntry(entryId) {
         return result.status === 'ok';
     } catch (err) {
         hideLoading();
-        addMessage('Ошибка: ' + err.message, 'error');
+        reportError(err);
         return false;
     }
 }
 
 async function purgeBackups() {
-    if (!confirm('Удалить все резервные копии? Откат выполненных операций станет невозможен.')) return;
+    if (!confirm(T('journal.purge.confirm'))) return;
     const result = await API.post('/api/backups/purge');
     addMessage(result.message, 'system');
     await refreshAfterChange();
@@ -505,20 +717,16 @@ async function purgeBackups() {
 async function setDemo(scenarioId) {
     const result = await API.post('/api/demo', { scenario: scenarioId || null });
     if (result.status !== 'ok') {
-        addMessage('Ошибка: ' + result.message, 'error');
+        addMessage(T('error.generic', { msg: result.message }), 'error');
         return;
     }
-    document.getElementById('demo-badge').hidden = !result.active;
-    for (const id of ['diag-results', 'problems-results', 'upgrade-results']) {
-        document.getElementById(id).innerHTML = '<p class="placeholder">Сначала выполните диагностику.</p>';
-    }
+    $('demo-badge').hidden = !result.active;
+    clearPanels();
     if (result.active) {
-        const title = document.getElementById('demo-select').selectedOptions[0].textContent;
-        addMessage(`${title}. Все исправления выполняются в песочнице — реальная система не изменяется.`, 'system');
+        addMessage(T('demo.on', { title: $('demo-select').selectedOptions[0].dataset.title }), 'system');
         await runScan();
-        showPanel('problems');
     } else {
-        addMessage('Демо-режим выключен: работаем с этим компьютером.', 'system');
+        addMessage(T('demo.off'), 'system');
     }
 }
 
@@ -529,18 +737,18 @@ async function setDemo(scenarioId) {
 async function openSettings() {
     try {
         const current = await API.get('/api/settings');
-        document.getElementById('setting-backend').value = current.ai_backend;
-        document.getElementById('setting-expert').checked = current.expert_mode;
-        document.getElementById('setting-model').value = current.openrouter_model;
-        document.getElementById('setting-key').value = '';
-        document.getElementById('setting-key').placeholder = current.openrouter_key_set
-            ? 'Ключ сохранён — введите новый, чтобы заменить' : 'sk-or-v1-…';
+        $('setting-backend').value = current.ai_backend;
+        $('setting-expert').checked = current.expert_mode;
+        $('setting-model').value = current.openrouter_model;
+        $('setting-key').value = '';
+        $('setting-key').placeholder = current.openrouter_key_set ? T('settings.key.saved') : 'sk-or-v1-…';
+        $('setting-key-status').textContent = '';
     } catch {}
-    document.getElementById('settings-modal').classList.add('active');
+    $('settings-modal').classList.add('active');
 }
 
 function closeSettings() {
-    document.getElementById('settings-modal').classList.remove('active');
+    $('settings-modal').classList.remove('active');
 }
 
 async function setLanguage(lang) {
@@ -556,64 +764,63 @@ async function updateSetting(key, value) {
 
 async function saveOpenRouter() {
     const payload = { ai_backend: 'openrouter' };
-    const key = document.getElementById('setting-key').value.trim();
-    const model = document.getElementById('setting-model').value.trim();
+    const key = $('setting-key').value.trim();
+    const model = $('setting-model').value.trim();
     if (key) payload.openrouter_api_key = key;
     if (model) payload.openrouter_model = model;
     const result = await API.post('/api/settings', payload);
-    document.getElementById('setting-backend').value = 'openrouter';
-    document.getElementById('setting-key').value = '';
-    document.getElementById('setting-key-status').textContent = result.ai_backend_active === 'openrouter'
-        ? '✔ Сохранено, AI-агент включён' : 'Ключ не задан — AI недоступен';
+    $('setting-backend').value = 'openrouter';
+    $('setting-key').value = '';
+    $('setting-key-status').textContent = T(result.ai_backend_active === 'openrouter' ? 'settings.key.ok' : 'settings.key.missing');
     await updateAiBadge();
 }
 
 async function updateAiBadge() {
     try {
         const status = await API.get('/api/status');
-        const badge = document.getElementById('ai-badge');
-        if (!badge) return;
+        const badge = $('ai-badge');
         if (status.ai_available) {
-            badge.textContent = `AI: ${status.ai_model}${status.ai_agent ? ' · агент' : ''}`;
-            badge.style.borderColor = 'var(--green)';
+            badge.textContent = `AI: ${status.ai_model}${status.ai_agent ? ' · ' + T('badge.agent') : ''}`;
+            badge.style.borderColor = 'var(--good)';
         } else {
-            badge.textContent = 'AI: отключён';
+            badge.textContent = T('badge.ai_off');
             badge.style.borderColor = '';
         }
     } catch {}
 }
 
 /* ============================================================
-   Utilities
+   Utilities and init
    ============================================================ */
 
-function showLoading(text = 'Загрузка...') {
-    document.getElementById('loading-text').textContent = text;
-    document.getElementById('loading').style.display = 'flex';
+function showLoading(text) {
+    $('loading-text').textContent = text || T('loading.default');
+    $('loading').style.display = 'flex';
 }
 
 function hideLoading() {
-    document.getElementById('loading').style.display = 'none';
+    $('loading').style.display = 'none';
 }
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/* ============================================================
-   Init
-   ============================================================ */
 
 document.addEventListener('click', (e) => {
     const fix = e.target.closest('[data-fix]');
     if (fix) fixProblem(fix.dataset.fix);
     const rollback = e.target.closest('[data-rollback]');
     if (rollback) rollbackEntry(rollback.dataset.rollback);
+    const suggest = e.target.closest('[data-suggest]');
+    if (suggest) sendMessage(T(suggest.dataset.suggest));
+    const ask = e.target.closest('[data-ask]');
+    if (ask) sendMessage(T(ask.dataset.ask));
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
+    applyI18n();
+    document.querySelectorAll('#demo-select option[data-title]').forEach(o => {
+        o.textContent = `${T('source.demo')}: ${o.dataset.title}`;
+    });
+    $('nav-upgrade').addEventListener('click', () => {
+        if (!$('upgrade-results').querySelector('.result-card')) runUpgrade();
+    });
     await updateAiBadge();
     await refreshPanels();   // a scan may already exist (page reload, --demo)
 });
