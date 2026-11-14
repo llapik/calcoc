@@ -10,6 +10,7 @@ from src.core.config import Config
 from src.core.logger import setup_logging, get_logger
 from src.web.routes import register_routes
 from src.ai.engine import AIEngine
+from src.core.session import AppSession
 from src.repair.executor import RepairExecutor
 from src.rollback.backup import BackupManager
 from src.rollback.journal import Journal
@@ -40,8 +41,8 @@ def create_app(config: Config | None = None, demo: str | None = None) -> Flask:
 
     journal = Journal(config.file_path("journal_db"))
     backups = BackupManager(config.path("backup_dir"), journal)
-    app.config["REPAIR_EXECUTOR"] = RepairExecutor(config, journal, backups)
-    app.config["DEMO_SCENARIO"] = demo or os.environ.get("CALCOC_DEMO") or None
+    executor = RepairExecutor(config, journal, backups)
+    app.config["SESSION"] = AppSession(config, executor, demo=demo or os.environ.get("CALCOC_DEMO") or None)
 
     register_routes(app)
 

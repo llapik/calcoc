@@ -1,23 +1,21 @@
 """Flask API routes and web endpoints."""
 
 import json
-import uuid
 from urllib.parse import urlsplit
 
 from flask import Flask, request, jsonify, render_template, Response, stream_with_context, abort
 
+from src.ai.agent import Agent
+from src.ai.engine import AIEngine
+from src.ai.prompts import build_context_message
+from src.ai.tools import Toolbox
+from src.analysis.performance import analyze as analyze_performance
 from src.core import platform
 from src.core.config import Config
 from src.core.i18n import t
 from src.core.logger import get_logger
-from src.demo.scenarios import DemoSession, list_scenarios
-from src.repair.executor import RepairExecutor
-from src.rollback.backup import BackupManager
-from src.diagnostics.collector import SystemCollector
-from src.analysis.problems import analyze_all, Problem
-from src.analysis.performance import analyze as analyze_performance
-from src.ai.engine import AIEngine
-from src.ai.prompts import build_context_message
+from src.core.session import AppSession, SessionError
+from src.demo.scenarios import list_scenarios
 from src.safety.classifier import SafetyClassifier
 from src.upgrade.advisor import analyze as analyze_upgrade
 
@@ -27,23 +25,14 @@ log = get_logger("web.routes")
 def register_routes(app: Flask) -> None:
     """Register all routes on the Flask app."""
 
-    # In-memory session state (single-user local app)
-    state: dict = {
-        "snapshot": None,
-        "problems": None,
-        "fixed": {},  # problem key -> {"problem": Problem, "journal_id": int}
-        "demo": None,  # DemoSession when a demo scenario is loaded
-        "session_id": str(uuid.uuid4())[:8],
-    }
-
     def _config() -> Config:
         return app.config["CALCOC_CONFIG"]
 
     def _engine() -> AIEngine:
         return app.config["AI_ENGINE"]
 
-    def _executor() -> RepairExecutor:
-        return app.config["REPAIR_EXECUTOR"]
+    def _session() -> AppSession:
+        return app.config["SESSION"]
 
     def _lang() -> str:
         return _config().language
@@ -51,46 +40,9 @@ def register_routes(app: Flask) -> None:
     def _error(key: str, code: int = 400, **fmt):
         return jsonify({"status": "error", "message": t(key, _lang(), **fmt)}), code
 
-    def _load_demo(scenario_id: str | None) -> None:
-        """Switch to a demo scenario (or back to the real machine) and reset session results."""
-        config = _config()
-        demo = DemoSession(config.demo_dir, scenario_id, config.data_dir / "demo_sandbox") if scenario_id else None
-        state.update(demo=demo, snapshot=None, problems=None, fixed={})
-        _executor().demo = demo
-
-    def _analyze() -> None:
-        demo: DemoSession | None = state["demo"]
-        if demo is not None:
-            state["snapshot"] = demo.snapshot()
-            state["problems"] = analyze_all(state["snapshot"], host_checks=False, extra=demo.problems(_lang()))
-        else:
-            state["problems"] = analyze_all(state["snapshot"])
-
-    def _find_problem(problem_id: str) -> Problem | None:
-        report = state["problems"]
-        return next((p for p in report.problems if p.id == problem_id), None) if report else None
-
-    def _problem_json(p: Problem, journal_id: int | None = None) -> dict:
-        data = {
-            "id": p.id,
-            "title": p.title,
-            "description": p.description,
-            "severity": p.severity.value,
-            "category": p.category,
-            "auto_fixable": p.auto_fixable,
-            "fix_action": p.fix_action,
-            "status": "fixed" if journal_id is not None else "open",
-            "journal_id": journal_id,
-        }
-        if p.fix_action and journal_id is None:
-            plan = _executor().plan(p.fix_action)
-            data["fix"] = {
-                "risk_level": plan.risk_level,
-                "risk_label": plan.risk_label,
-                "availability": plan.status,  # done = can run now
-                "note": plan.message,
-            }
-        return data
+    @app.errorhandler(SessionError)
+    def _session_error(exc: SessionError):
+        return jsonify({"status": "error", "message": exc.message(_lang())}), exc.code
 
     @app.before_request
     def _guard_local_requests():
@@ -105,19 +57,17 @@ def register_routes(app: Flask) -> None:
         if origin and urlsplit(origin).hostname not in allowed:
             abort(403)
 
-    if scenario := app.config.get("DEMO_SCENARIO"):
-        _load_demo(scenario)
-
     # ------------------------------------------------------------------
     # Pages
     # ------------------------------------------------------------------
     @app.route("/")
     def index():
         config = _config()
+        session = _session()
         return render_template(
             "index.html",
             app_name=config.app_name,
-            demo_id=state["demo"].id if state["demo"] else "",
+            demo_id=session.demo.id if session.demo else "",
             scenarios=list_scenarios(config.demo_dir, config.language),
             language=config.language,
             ai_backend=_engine().backend_name,
@@ -127,174 +77,102 @@ def register_routes(app: Flask) -> None:
     # ------------------------------------------------------------------
     # API: System diagnostics
     # ------------------------------------------------------------------
+    def _scan_json(snapshot):
+        return jsonify({"status": "ok", "summary": snapshot.summary_text(), "data": snapshot.to_dict()})
+
     @app.route("/api/scan", methods=["POST"])
     def api_scan():
         """Run full system diagnostic scan."""
         try:
-            demo: DemoSession | None = state["demo"]
-            snapshot = demo.snapshot() if demo else SystemCollector().collect_all()
-            state["snapshot"] = snapshot
-            state["problems"] = None  # invalidate stale problem cache
-            return jsonify({
-                "status": "ok",
-                "summary": snapshot.summary_text(),
-                "data": snapshot.to_dict(),
-            })
+            return _scan_json(_session().scan())
         except Exception as exc:
-            log.error("Scan failed: %s", exc)
+            log.exception("Scan failed")
             return jsonify({"status": "error", "message": f"Ошибка диагностики: {exc}"}), 500
+
+    @app.route("/api/scan", methods=["GET"])
+    def api_scan_cached():
+        """Return the last scan without running a new one."""
+        snapshot = _session().snapshot
+        if snapshot is None:
+            return _error("scan.required", 404)
+        return _scan_json(snapshot)
 
     @app.route("/api/problems", methods=["POST"])
     def api_problems():
         """Analyze system for problems."""
-        if state["snapshot"] is None:
-            return jsonify({"status": "error", "message": "Сначала выполните диагностику (/scan)"}), 400
+        session = _session()
+        report = session.analyze()
+        return jsonify({"status": "ok", "summary": report.summary, "problems": session.problems_json()})
 
-        try:
-            _analyze()
-            problems = state["problems"]
-            open_problems = [p for p in problems.problems if p.key not in state["fixed"]]
-            fixed = [(f["problem"], f["journal_id"]) for f in state["fixed"].values()]
-            return jsonify({
-                "status": "ok",
-                "summary": problems.summary,
-                "problems": [_problem_json(p) for p in open_problems]
-                + [_problem_json(p, journal_id) for p, journal_id in fixed],
-            })
-        except Exception as exc:
-            log.exception("Problem analysis failed")
-            return jsonify({"status": "error", "message": f"Ошибка анализа: {exc}"}), 500
+    @app.route("/api/problems", methods=["GET"])
+    def api_problems_cached():
+        """Return the current problem list without re-running the analysis."""
+        session = _session()
+        if session.snapshot is None:
+            return _error("scan.required", 404)
+        report = session.ensure_problems()
+        return jsonify({"status": "ok", "summary": report.summary, "problems": session.problems_json()})
 
     @app.route("/api/performance", methods=["POST"])
     def api_performance():
         """Run performance analysis."""
-        if state["snapshot"] is None:
-            return jsonify({"status": "error", "message": "Сначала выполните диагностику (/scan)"}), 400
-
-        try:
-            report = analyze_performance(state["snapshot"])
-            return jsonify({
-                "status": "ok",
-                "score": report.score,
-                "summary": report.summary,
-                "bottlenecks": [
-                    {
-                        "component": b.component,
-                        "severity": b.severity,
-                        "description": b.description,
-                        "recommendation": b.recommendation,
-                    }
-                    for b in report.bottlenecks
-                ],
-            })
-        except Exception as exc:
-            log.error("Performance analysis failed: %s", exc)
-            return jsonify({"status": "error", "message": f"Ошибка: {exc}"}), 500
+        snapshot = _session().snapshot
+        if snapshot is None:
+            return _error("scan.required")
+        report = analyze_performance(snapshot)
+        return jsonify({
+            "status": "ok",
+            "score": report.score,
+            "summary": report.summary,
+            "bottlenecks": [
+                {
+                    "component": b.component,
+                    "severity": b.severity,
+                    "description": b.description,
+                    "recommendation": b.recommendation,
+                }
+                for b in report.bottlenecks
+            ],
+        })
 
     @app.route("/api/upgrade", methods=["POST"])
     def api_upgrade():
         """Get upgrade recommendations."""
-        if state["snapshot"] is None:
-            return jsonify({"status": "error", "message": "Сначала выполните диагностику (/scan)"}), 400
-
-        try:
-            report = analyze_upgrade(state["snapshot"])
-            return jsonify({
-                "status": "ok",
-                "text": report.to_text(),
-                "bottlenecks": report.bottlenecks,
-                "recommendations": [
-                    {
-                        "component": r.component,
-                        "priority": r.priority,
-                        "current": r.current,
-                        "recommended": r.recommended,
-                        "reason": r.reason,
-                        "expected_impact": r.expected_impact,
-                        "estimated_cost": r.estimated_cost,
-                    }
-                    for r in report.recommendations
-                ],
-            })
-        except Exception as exc:
-            log.error("Upgrade analysis failed: %s", exc)
-            return jsonify({"status": "error", "message": f"Ошибка: {exc}"}), 500
-
-    # ------------------------------------------------------------------
-    # API: AI Chat
-    # ------------------------------------------------------------------
-    @app.route("/api/chat", methods=["POST"])
-    def api_chat():
-        """Send a message to the AI assistant (blocking)."""
-        data = request.get_json()
-        if not data or "message" not in data:
-            return jsonify({"status": "error", "message": "Сообщение не указано"}), 400
-
-        message = data["message"]
-        engine = _engine()
-        context = _build_context(state)
-
-        try:
-            response = engine.chat(message, context=context)
-            return jsonify({"status": "ok", "response": response, "backend": engine.backend_name})
-        except Exception as exc:
-            log.error("Chat error: %s", exc)
-            return jsonify({"status": "error", "message": str(exc)}), 500
-
-    @app.route("/api/chat/stream", methods=["POST"])
-    def api_chat_stream():
-        """Stream AI response via Server-Sent Events."""
-        data = request.get_json()
-        if not data or "message" not in data:
-            return jsonify({"status": "error", "message": "Сообщение не указано"}), 400
-
-        message = data["message"]
-        engine = _engine()
-        context = _build_context(state)
-
-        def generate():
-            try:
-                for token in engine.chat_stream(message, context=context):
-                    yield f"data: {json.dumps({'token': token})}\n\n"
-                yield f"data: {json.dumps({'done': True})}\n\n"
-            except Exception as exc:
-                log.error("Stream error: %s", exc)
-                yield f"data: {json.dumps({'error': str(exc)})}\n\n"
-
-        return Response(
-            stream_with_context(generate()),
-            mimetype="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        )
+        snapshot = _session().snapshot
+        if snapshot is None:
+            return _error("scan.required")
+        report = analyze_upgrade(snapshot)
+        return jsonify({
+            "status": "ok",
+            "text": report.to_text(),
+            "bottlenecks": report.bottlenecks,
+            "recommendations": [
+                {
+                    "component": r.component,
+                    "priority": r.priority,
+                    "current": r.current,
+                    "recommended": r.recommended,
+                    "reason": r.reason,
+                    "expected_impact": r.expected_impact,
+                    "estimated_cost": r.estimated_cost,
+                }
+                for r in report.recommendations
+            ],
+        })
 
     # ------------------------------------------------------------------
     # API: Repair — safety check → backup → action → journal
     # ------------------------------------------------------------------
     @app.route("/api/repair", methods=["POST"])
     def api_repair():
-        """Fix a detected problem. The action and its arguments come from server-side state only."""
+        """Fix a detected problem (``dry_run`` returns the plan, ``confirm`` executes)."""
         data = request.get_json(silent=True) or {}
-        problem = _find_problem(str(data.get("problem_id", "")))
-        if problem is None:
-            return _error("problem.not_found", 404)
-        if not problem.fix_action:
-            return _error("problem.not_fixable")
-
-        executor = _executor()
+        problem_id = str(data.get("problem_id", ""))
+        session = _session()
         if data.get("dry_run"):
-            return jsonify({"status": "ok", "outcome": executor.plan(problem.fix_action).to_dict()})
-
-        outcome = executor.execute(
-            problem.fix_action,
-            params=problem.fix_params,
-            confirmed=bool(data.get("confirm")),
-            session_id=state["session_id"],
-        )
-        if outcome.ok and outcome.journal_id is not None:
-            state["fixed"][problem.key] = {"problem": problem, "journal_id": outcome.journal_id}
-            if state["demo"] is not None:
-                state["demo"].fixed.add(problem.key)
-                _analyze()  # the scenario's snapshot reflects the fix
+            outcome = session.plan_repair(problem_id)
+        else:
+            outcome = session.repair(problem_id, confirm=bool(data.get("confirm")))
         return jsonify({"status": "ok", "outcome": outcome.to_dict()})
 
     # ------------------------------------------------------------------
@@ -302,50 +180,17 @@ def register_routes(app: Flask) -> None:
     # ------------------------------------------------------------------
     @app.route("/api/journal", methods=["GET"])
     def api_journal():
-        executor = _executor()
-        return jsonify({
-            "status": "ok",
-            "entries": [
-                {
-                    "id": e.id,
-                    "timestamp": e.timestamp,
-                    "action": e.action,
-                    "description": executor.classifier.describe(e.action),
-                    "target": e.target,
-                    "risk_level": e.risk_level,
-                    "status": e.status,
-                    "can_rollback": BackupManager.can_rollback(e),
-                    "details": e.details,
-                    "this_session": e.session_id == state["session_id"],
-                }
-                for e in executor.journal.get_recent(limit=100)
-            ],
-        })
+        return jsonify({"status": "ok", "entries": _session().journal_json()})
 
     @app.route("/api/journal/<int:entry_id>/rollback", methods=["POST"])
     def api_rollback(entry_id: int):
-        executor = _executor()
-        entry = executor.journal.get_entry(entry_id)
-        if entry is None or not BackupManager.can_rollback(entry):
-            return _error("rollback.not_possible", 409, id=entry_id)
-        if not executor.rollback(entry_id):
-            return _error("rollback.failed", 500, id=entry_id)
-
-        # The problem this operation fixed is open again
-        for key, fixed in list(state["fixed"].items()):
-            if fixed["journal_id"] == entry_id:
-                del state["fixed"][key]
-                if state["demo"] is not None:
-                    state["demo"].fixed.discard(key)
-        if state["demo"] is not None and state["snapshot"] is not None:
-            _analyze()
+        _session().rollback(entry_id)
         return jsonify({"status": "ok", "message": t("rollback.done", _lang(), id=entry_id)})
 
     @app.route("/api/backups/purge", methods=["POST"])
     def api_backups_purge():
         """Delete stored backups to release disk space; purged operations cannot be undone."""
-        count, released = _executor().backups.purge()
-        state["fixed"] = {}
+        count, released = _session().purge_backups()
         return jsonify({
             "status": "ok",
             "message": t("purge.done", _lang(), count=count, size_mb=released / (1024 * 1024)),
@@ -357,9 +202,10 @@ def register_routes(app: Flask) -> None:
     @app.route("/api/demo", methods=["GET"])
     def api_demo_list():
         config = _config()
+        session = _session()
         return jsonify({
             "status": "ok",
-            "active": state["demo"].id if state["demo"] else None,
+            "active": session.demo.id if session.demo else None,
             "scenarios": list_scenarios(config.demo_dir, config.language),
         })
 
@@ -367,11 +213,66 @@ def register_routes(app: Flask) -> None:
     def api_demo_select():
         """Load a demo scenario, or pass ``{"scenario": null}`` to return to the real machine."""
         scenario = (request.get_json(silent=True) or {}).get("scenario")
+        session = _session()
+        session.load_demo(str(scenario) if scenario else None)
+        return jsonify({"status": "ok", "active": session.demo.id if session.demo else None})
+
+    # ------------------------------------------------------------------
+    # API: AI Chat
+    # ------------------------------------------------------------------
+    def _chat_events(message: str):
+        """Yield UI events for one chat turn: the agent when the backend can call tools, plain chat otherwise."""
+        engine, session = _engine(), _session()
+        backend = engine.agent_backend()
+        if backend is not None:
+            temperature, max_tokens = engine.sampling()
+            agent = Agent(backend, session, Toolbox(session, engine.knowledge), temperature, max_tokens)
+            yield from agent.run(message)
+            return
         try:
-            _load_demo(str(scenario) if scenario else None)
-        except KeyError:
-            return _error("demo.unknown", 404)
-        return jsonify({"status": "ok", "active": state["demo"].id if state["demo"] else None})
+            for token in engine.chat_stream(message, context=_build_context(session)):
+                yield {"type": "token", "text": token}
+        except Exception as exc:
+            log.exception("Chat failed")
+            yield {"type": "error", "message": str(exc)}
+        yield {"type": "done"}
+
+    @app.route("/api/chat", methods=["POST"])
+    def api_chat():
+        """Send a message to the AI assistant (blocking)."""
+        data = request.get_json(silent=True)
+        if not data or not data.get("message"):
+            return jsonify({"status": "error", "message": "Сообщение не указано"}), 400
+
+        text, events = [], []
+        for event in _chat_events(str(data["message"])):
+            if event["type"] == "token":
+                text.append(event["text"])
+            elif event["type"] == "error":
+                return jsonify({"status": "error", "message": event["message"]}), 502
+            elif event["type"] != "done":
+                events.append(event)
+        return jsonify({
+            "status": "ok", "response": "".join(text), "events": events, "backend": _engine().backend_name,
+        })
+
+    @app.route("/api/chat/stream", methods=["POST"])
+    def api_chat_stream():
+        """Stream the AI's work via Server-Sent Events (see ``src/ai/agent.py`` for event types)."""
+        data = request.get_json(silent=True)
+        if not data or not data.get("message"):
+            return jsonify({"status": "error", "message": "Сообщение не указано"}), 400
+        message = str(data["message"])
+
+        def generate():
+            for event in _chat_events(message):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     # ------------------------------------------------------------------
     # API: Safety
@@ -379,7 +280,7 @@ def register_routes(app: Flask) -> None:
     @app.route("/api/safety/check", methods=["POST"])
     def api_safety_check():
         """Check if an action is safe to perform."""
-        data = request.get_json()
+        data = request.get_json(silent=True)
         action = data.get("action", "") if data else ""
         if not action:
             return jsonify({"status": "error", "message": "Действие не указано"}), 400
@@ -409,24 +310,37 @@ def register_routes(app: Flask) -> None:
             "language": config.language,
             "expert_mode": config.expert_mode,
             "ai_backend": config.ai_backend,
+            "ai_backend_active": engine.backend_name,
             "ai_model": engine.model_name,
             "ai_available": engine.is_available,
+            "openrouter_model": config.openrouter_model,
+            "openrouter_key_set": bool(config.openrouter_api_key),  # the key itself is never returned
         })
 
     @app.route("/api/settings", methods=["POST"])
     def api_settings_post():
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         config = _config()
         engine = _engine()
+        reload_ai = False
 
-        if "language" in data:
-            config.settings.setdefault("app", {})["language"] = data["language"]
+        if data.get("language") in ("ru", "en"):
+            config.set_user("app", "language", data["language"])
         if "expert_mode" in data:
             config.settings.setdefault("app", {})["expert_mode"] = bool(data["expert_mode"])
-        if "ai_backend" in data and data["ai_backend"] in ("llama", "openrouter", "none"):
-            engine.switch_backend(data["ai_backend"])
+        if isinstance(data.get("openrouter_api_key"), str) and data["openrouter_api_key"].strip():
+            config.set_user("openrouter", "api_key", data["openrouter_api_key"].strip())
+            reload_ai = True
+        if isinstance(data.get("openrouter_model"), str) and data["openrouter_model"].strip():
+            config.set_user("openrouter", "default_model", data["openrouter_model"].strip())
+            reload_ai = True
+        if data.get("ai_backend") in ("llama", "openrouter", "none"):
+            config.set_user("ai", "backend", data["ai_backend"])
+            reload_ai = True
+        if reload_ai:
+            engine.switch_backend(config.ai_backend)
 
-        return jsonify({"status": "ok"})
+        return jsonify({"status": "ok", "ai_backend_active": engine.backend_name, "ai_available": engine.is_available})
 
     # ------------------------------------------------------------------
     # API: Status
@@ -434,27 +348,25 @@ def register_routes(app: Flask) -> None:
     @app.route("/api/status", methods=["GET"])
     def api_status():
         engine = _engine()
+        session = _session()
         return jsonify({
             "status": "ok",
-            "session_id": state["session_id"],
-            "has_scan": state["snapshot"] is not None,
-            "has_problems": state["problems"] is not None,
+            "session_id": session.id,
+            "has_scan": session.snapshot is not None,
+            "has_problems": session.problems is not None,
             "mode": _config().mode,
             "platform": platform.os_family(),
-            "demo": state["demo"].id if state["demo"] else None,
+            "demo": session.demo.id if session.demo else None,
             "ai_backend": engine.backend_name,
             "ai_model": engine.model_name,
             "ai_available": engine.is_available,
+            "ai_agent": engine.agent_backend() is not None,
         })
 
 
-# ------------------------------------------------------------------
-# Helpers (module-level, not closures)
-# ------------------------------------------------------------------
-def _build_context(state: dict) -> str:
-    """Build AI context string from current session state."""
-    if state["snapshot"] is None:
+def _build_context(session: AppSession) -> str:
+    """Context block for backends without tool calling."""
+    if session.snapshot is None:
         return ""
-    system_info = state["snapshot"].summary_text()
-    problems_text = state["problems"].summary if state["problems"] else ""
-    return build_context_message(system_info, problems_text, "")
+    problems_text = session.problems.summary if session.problems else ""
+    return build_context_message(session.snapshot.summary_text(), problems_text, "")

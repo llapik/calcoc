@@ -70,15 +70,15 @@
                         <div class="chat-messages" id="chat-messages">
                             <div class="message message-system">
                                 Добро пожаловать в AI PC Repair & Optimizer!
-                                Я помогу вам диагностировать и решить проблемы с ПК.
-                                Начните с команды /scan для диагностики или задайте вопрос.
+                                Опишите, что не так с компьютером, — я сам проведу диагностику,
+                                объясню причины и предложу исправления. Ничего не меняется без вашего подтверждения.
                             </div>
                         </div>
                         <div class="chat-input-area">
                             <div class="chat-suggestions">
                                 <button class="suggestion" onclick="sendMessage('/scan')">🔍 Диагностика</button>
                                 <button class="suggestion" onclick="sendMessage('/upgrade')">📈 Апгрейд</button>
-                                <button class="suggestion" onclick="sendMessage('Какие проблемы найдены?')">⚠️ Проблемы</button>
+                                <button class="suggestion" onclick="sendMessage('Проверь мой компьютер и расскажи, что с ним не так')">🩺 Проверь мой ПК</button>
                                 <button class="suggestion" onclick="sendMessage('Как ускорить компьютер?')">🚀 Оптимизация</button>
                             </div>
                             <form class="chat-form" onsubmit="handleSubmit(event)">
@@ -145,6 +145,16 @@
                             <option value="openrouter">OpenRouter (облако)</option>
                             <option value="none">Отключён</option>
                         </select>
+                    </div>
+                    <div class="setting-group">
+                        <label for="setting-key">Ключ OpenRouter:</label>
+                        <input type="password" id="setting-key" autocomplete="off" spellcheck="false">
+                        <label for="setting-model">Модель:</label>
+                        <input type="text" id="setting-model" autocomplete="off" spellcheck="false">
+                        <p class="setting-hint">Для AI-агента нужна модель с вызовом инструментов. Модели с суффиксом
+                            <code>:free</code> работают на бесплатном аккаунте. Ключ хранится только на этом компьютере.</p>
+                        <button class="btn btn-sm btn-primary" onclick="saveOpenRouter()">Сохранить и включить</button>
+                        <span class="setting-hint" id="setting-key-status"></span>
                     </div>
                     <div class="setting-group">
                         <label>

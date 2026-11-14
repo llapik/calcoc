@@ -59,6 +59,7 @@ class AIEngine:
         if not api_key:
             log.warning("OpenRouter API key not set, falling back to llama")
             self._backend = "llama"
+            self._openrouter = None
             self._init_llama()
             return
 
@@ -75,6 +76,11 @@ class AIEngine:
         self._selected_model = select_model(self.config.models, models_dir)
 
         if self._selected_model.name == "none" or self._selected_model.file is None:
+            if self.config.openrouter_api_key and self._openrouter is None:
+                log.info("No local model available, using OpenRouter instead")
+                self._backend = "openrouter"
+                self._init_openrouter()
+                return
             log.info("AI backend: none (insufficient resources or no model file)")
             self._backend = "none"
             return
@@ -113,6 +119,20 @@ class AIEngine:
     def is_available(self) -> bool:
         self.ensure_ready()
         return self._backend != "none"
+
+    @property
+    def knowledge(self) -> KnowledgeBase | None:
+        self.ensure_ready()
+        return self._knowledge
+
+    def agent_backend(self) -> OpenRouterBackend | None:
+        """Backend able to run the tool-calling agent, or ``None`` (then plain chat is used)."""
+        self.ensure_ready()
+        return self._openrouter if self._backend == "openrouter" else None
+
+    def sampling(self) -> tuple[float, int]:
+        """Configured ``(temperature, max_tokens)``."""
+        return self._resolve_params(None, None)
 
     def _resolve_params(
         self, temperature: float | None, max_tokens: int | None
@@ -198,6 +218,7 @@ class AIEngine:
             raise ValueError(f"Unknown backend: {backend}")
         self._backend = backend
         self._initialized = False
+        self._openrouter = None
         log.info("Backend switched to: %s", backend)
 
     # ------------------------------------------------------------------

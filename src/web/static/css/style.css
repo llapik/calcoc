@@ -528,3 +528,56 @@ select {
 .journal-status { margin-left: auto; color: var(--text-secondary); font-size: 0.85rem; }
 .journal-entry .desc { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.3rem; overflow-wrap: anywhere; }
 .journal-entry .actions { margin-top: 0.6rem; }
+
+/* ---- AI agent chat ---- */
+.message-ai { white-space: normal; }
+.message-ai p { margin: 0 0 0.55rem; line-height: 1.5; }
+.message-ai > :last-child { margin-bottom: 0; }
+.message-ai ul, .message-ai ol { margin: 0 0 0.55rem 1.3rem; line-height: 1.5; }
+.message-ai li { margin-bottom: 0.2rem; }
+.message-ai h4 { margin: 0.7rem 0 0.4rem; font-size: 1rem; }
+.message-ai h4:first-child { margin-top: 0; }
+.message-ai hr { border: 0; border-top: 1px solid var(--border); margin: 0.7rem 0; }
+.message-ai code { background: var(--bg-input); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.9em; }
+.message-ai pre { background: var(--bg-input); padding: 0.6rem; border-radius: 6px; overflow-x: auto; margin-bottom: 0.55rem; }
+.message-ai table { border-collapse: collapse; margin-bottom: 0.55rem; font-size: 0.92rem; }
+.message-ai th, .message-ai td { border: 1px solid var(--border); padding: 0.35rem 0.6rem; text-align: left; vertical-align: top; }
+.message-ai th { background: var(--bg-input); }
+
+.message-thinking { align-self: flex-start; color: var(--text-secondary); font-size: 0.9rem; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+
+.agent-steps { align-self: flex-start; display: flex; flex-direction: column; gap: 0.3rem; }
+.agent-step {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.2rem 0.8rem;
+    width: fit-content;
+}
+.agent-step::before { content: '⏳ '; }
+.agent-step.ok::before { content: '✔ '; color: var(--green); }
+.agent-step.failed::before { content: '✖ '; color: var(--red); }
+
+.proposal-card {
+    align-self: flex-start;
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    max-width: 80%;
+}
+.proposal-head { display: flex; align-items: center; gap: 0.6rem; color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.4rem; }
+.proposal-card .title { font-weight: 600; }
+.proposal-card .desc { color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem; }
+.proposal-card .actions { display: flex; gap: 0.6rem; margin-top: 0.7rem; }
+
+.setting-group input[type="text"], .setting-group input[type="password"] {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.6rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+}
+.proposal-card { white-space: normal; }

@@ -32,6 +32,7 @@ class Config:
         self.settings = self._load("settings.yaml")
         self.models = self._load("models.yaml")
         self.safety_rules = self._load("safety_rules.yaml")
+        self._apply_user_settings()
         self._apply_env_overrides()
 
     # ------------------------------------------------------------------
@@ -44,6 +45,43 @@ class Config:
             data = {}
         self._cache[filename] = data
         return data
+
+    # ------------------------------------------------------------------
+    # User settings: the few values changed from the UI, kept in the data directory so they
+    # survive restarts. Expert mode is deliberately not persisted.
+    _USER_KEYS = (("app", "language"), ("ai", "backend"), ("openrouter", "api_key"), ("openrouter", "default_model"))
+
+    @property
+    def _user_settings_file(self) -> Path:
+        return self.data_dir / "user_settings.yaml"
+
+    def _apply_user_settings(self) -> None:
+        try:
+            with open(self._user_settings_file, "r", encoding="utf-8") as fh:
+                saved = yaml.safe_load(fh) or {}
+        except (OSError, yaml.YAMLError):
+            return
+        for section, key in self._USER_KEYS:
+            value = saved.get(section, {}).get(key) if isinstance(saved.get(section), dict) else None
+            if value not in (None, ""):
+                self.settings.setdefault(section, {})[key] = value
+
+    def set_user(self, section: str, key: str, value) -> None:
+        """Change a UI-controlled setting and persist it."""
+        if (section, key) not in self._USER_KEYS:
+            raise KeyError(f"{section}.{key}")
+        self.settings.setdefault(section, {})[key] = value
+        path = self._user_settings_file
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                saved = yaml.safe_load(fh) or {}
+        except (OSError, yaml.YAMLError):
+            saved = {}
+        saved.setdefault(section, {})[key] = value
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)  # may hold an API key
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            yaml.safe_dump(saved, fh, allow_unicode=True)
 
     # ------------------------------------------------------------------
     def _apply_env_overrides(self) -> None:
@@ -95,7 +133,7 @@ class Config:
     @property
     def openrouter_model(self) -> str:
         return self.settings.get("openrouter", {}).get(
-            "default_model", "meta-llama/llama-3-8b-instruct"
+            "default_model", "google/gemma-4-31b-it:free"
         )
 
     @property

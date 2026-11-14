@@ -40,8 +40,13 @@ function addMessage(text, type = 'ai') {
     div.className = 'message message-' + type;
     div.textContent = text;
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    scrollChat();
     return div;
+}
+
+function scrollChat() {
+    const container = document.getElementById('chat-messages');
+    container.scrollTop = container.scrollHeight;
 }
 
 function handleSubmit(e) {
@@ -53,7 +58,114 @@ function handleSubmit(e) {
     sendMessage(msg);
 }
 
+/* --- Minimal, safe Markdown: everything is escaped first, then a few constructs are re-enabled --- */
+
+function renderInline(text) {
+    return escapeHtml(text)
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/(^|[\s(])\*([^*\s][^*]*)\*(?=[\s).,!?:;]|$)/g, '$1<em>$2</em>');
+}
+
+function renderMarkdown(src) {
+    const lines = src.replace(/\r/g, '').split('\n');
+    const out = [];
+    let list = null;      // 'ul' | 'ol'
+    let table = null;     // array of rows
+    let code = null;      // array of lines
+    const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    const closeTable = () => {
+        if (!table) return;
+        const [head, ...body] = table;
+        const row = (cells, tag) => '<tr>' + cells.map(c => `<${tag}>${renderInline(c)}</${tag}>`).join('') + '</tr>';
+        out.push('<table>' + row(head, 'th') + body.map(r => row(r, 'td')).join('') + '</table>');
+        table = null;
+    };
+
+    for (const line of lines) {
+        if (line.trim().startsWith('```')) {
+            if (code) { out.push('<pre>' + escapeHtml(code.join('\n')) + '</pre>'); code = null; }
+            else { closeList(); closeTable(); code = []; }
+            continue;
+        }
+        if (code) { code.push(line); continue; }
+
+        if (/^\s*\|.*\|\s*$/.test(line)) {
+            closeList();
+            const cells = line.trim().slice(1, -1).split('|').map(c => c.trim());
+            if (cells.every(c => /^:?-{2,}:?$/.test(c))) continue;  // separator row
+            (table = table || []).push(cells);
+            continue;
+        }
+        closeTable();
+
+        let m;
+        if ((m = line.match(/^\s*(#{1,4})\s+(.*)$/))) {
+            closeList();
+            out.push(`<h4>${renderInline(m[2])}</h4>`);
+        } else if ((m = line.match(/^\s*(?:[-*•]|(\d+)[.)])\s+(.*)$/))) {
+            const kind = m[1] ? 'ol' : 'ul';
+            if (list !== kind) { closeList(); out.push(`<${kind}>`); list = kind; }
+            out.push(`<li>${renderInline(m[2])}</li>`);
+        } else if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) {
+            closeList();
+            out.push('<hr>');
+        } else if (line.trim() === '') {
+            closeList();
+        } else {
+            closeList();
+            out.push(`<p>${renderInline(line)}</p>`);
+        }
+    }
+    if (code) out.push('<pre>' + escapeHtml(code.join('\n')) + '</pre>');
+    closeList();
+    closeTable();
+    return out.join('');
+}
+
+const TOOL_LABELS = {
+    scan_system: 'Диагностика системы',
+    list_problems: 'Просмотр найденных проблем',
+    get_component_details: 'Чтение данных компонента',
+    propose_fix: 'Подготовка исправления',
+    get_upgrade_advice: 'Подбор апгрейда',
+    get_journal: 'Чтение журнала операций',
+    propose_rollback: 'Подготовка отката',
+    search_knowledge: 'Поиск в базе знаний',
+};
+
+function addProposalCard(event) {
+    const card = document.createElement('div');
+    card.className = 'message proposal-card';
+    const isFix = event.type === 'fix_proposal';
+    const risk = isFix
+        ? `<span class="risk-badge risk-${event.risk_level}">${RISK_ICONS[event.risk_level] || ''} ${escapeHtml(event.risk_label)}</span>`
+        : '';
+    card.innerHTML = `
+        <div class="proposal-head">${isFix ? '🛠️ Предлагаю исправить' : '↩ Предлагаю откатить'} ${risk}</div>
+        <div class="title">${escapeHtml(event.title)}</div>
+        ${isFix ? `<div class="desc">${escapeHtml(event.plan)}</div>` : ''}
+        ${isFix && event.note ? `<div class="desc">${escapeHtml(event.note)}</div>` : ''}
+        ${isFix && event.requires_backup ? '<div class="desc">Перед изменением будет создана резервная копия.</div>' : ''}
+        <div class="actions">
+            <button class="btn btn-sm btn-primary" data-accept>Выполнить</button>
+            <button class="btn btn-sm" data-decline>Не сейчас</button>
+        </div>`;
+    const finish = (label) => { card.querySelector('.actions').innerHTML = `<span class="fix-note">${label}</span>`; };
+    card.querySelector('[data-decline]').onclick = () => finish('Отклонено');
+    card.querySelector('[data-accept]').onclick = async () => {
+        finish('Выполняется…');
+        const ok = isFix ? await executeRepair(event.problem_id) : await rollbackEntry(event.journal_id);
+        finish(ok ? '✔ Выполнено' : '✖ Не выполнено — подробности ниже');
+    };
+    document.getElementById('chat-messages').appendChild(card);
+    scrollChat();
+}
+
+let chatBusy = false;
+
 async function sendMessage(message) {
+    if (chatBusy) return;
     addMessage(message, 'user');
 
     // Handle special commands
@@ -66,8 +178,50 @@ async function sendMessage(message) {
         return;
     }
 
-    // Stream AI response
-    const msgDiv = addMessage('', 'ai');
+    chatBusy = true;
+    const container = document.getElementById('chat-messages');
+    const steps = document.createElement('div');   // what the agent is doing
+    steps.className = 'agent-steps';
+    container.appendChild(steps);
+    let msgDiv = null;                              // created on the first token
+    let text = '';
+    const thinking = addMessage('Думаю…', 'thinking');
+
+    const handle = (event) => {
+        switch (event.type) {
+        case 'token':
+            if (!msgDiv) msgDiv = addMessage('', 'ai');
+            text += event.text;
+            msgDiv.innerHTML = renderMarkdown(text);
+            break;
+        case 'tool_start': {
+            const step = document.createElement('div');
+            step.className = 'agent-step running';
+            step.dataset.id = event.id;
+            step.textContent = TOOL_LABELS[event.name] || event.name;
+            steps.appendChild(step);
+            break;
+        }
+        case 'tool_end': {
+            const step = [...steps.children].find(s => s.dataset.id === event.id);
+            if (step) step.className = 'agent-step ' + (event.ok ? 'ok' : 'failed');
+            // text after a tool call belongs to a new bubble, below the steps
+            if (msgDiv && text.trim()) { msgDiv = null; text = ''; }
+            break;
+        }
+        case 'fix_proposal':
+        case 'rollback_proposal':
+            addProposalCard(event);
+            break;
+        case 'state_changed':
+            refreshPanels();
+            break;
+        case 'error':
+            addMessage('Ошибка AI: ' + event.message, 'error');
+            break;
+        }
+        scrollChat();
+    };
 
     try {
         const resp = await fetch('/api/chat/stream', {
@@ -75,45 +229,41 @@ async function sendMessage(message) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message }),
         });
+        if (!resp.ok) throw new Error((await resp.json()).message || resp.statusText);
 
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
-
             for (const line of lines) {
                 if (!line.startsWith('data: ')) continue;
-                try {
-                    const data = JSON.parse(line.slice(6));
-                    if (data.token) {
-                        msgDiv.textContent += data.token;
-                    }
-                    if (data.error) {
-                        msgDiv.textContent = 'Ошибка: ' + data.error;
-                        msgDiv.className = 'message message-error';
-                    }
-                } catch {}
+                let event;
+                try { event = JSON.parse(line.slice(6)); } catch { continue; }
+                handle(event);
             }
         }
-
-        if (!msgDiv.textContent) {
-            msgDiv.textContent = 'Не удалось получить ответ от AI.';
-            msgDiv.className = 'message message-error';
-        }
     } catch (err) {
-        msgDiv.textContent = 'Ошибка подключения: ' + err.message;
-        msgDiv.className = 'message message-error';
+        addMessage('Ошибка подключения: ' + err.message, 'error');
+    } finally {
+        thinking.remove();
+        if (!steps.children.length) steps.remove();
+        chatBusy = false;
+        scrollChat();
     }
+}
 
-    document.getElementById('chat-messages').scrollTop =
-        document.getElementById('chat-messages').scrollHeight;
+async function refreshPanels() {
+    try {
+        if (!(await API.get('/api/status')).has_scan) return;
+        const scan = await API.get('/api/scan');
+        if (scan.status === 'ok') showScan(scan);
+        await showProblems(await API.get('/api/problems'));
+    } catch {}
 }
 
 /* ============================================================
@@ -154,14 +304,12 @@ function showScan(result) {
     `;
 }
 
-async function renderScan() {
-    const result = await API.post('/api/scan');
-    if (result.status === 'ok') showScan(result);
+async function runProblems() {
+    await showProblems(await API.post('/api/problems'));
 }
 
-async function runProblems() {
+async function showProblems(result) {
     try {
-        const result = await API.post('/api/problems');
         if (result.status !== 'ok') return;
 
         const container = document.getElementById('problems-results');
@@ -182,7 +330,7 @@ async function runProblems() {
                 const f = p.fix;
                 const blocked = f.availability === 'blocked' || f.availability === 'unavailable';
                 actions = `<div class="actions">
-                    <button class="btn btn-sm btn-primary" data-fix="${escapeHtml(p.id)}" ${blocked ? 'disabled' : ''}>
+                    <button class="btn btn-sm btn-primary" data-fix="${escapeHtml(p.key)}" ${blocked ? 'disabled' : ''}>
                         Исправить
                     </button>
                     <span class="risk-badge risk-${f.risk_level}">${RISK_ICONS[f.risk_level] || ''} ${escapeHtml(f.risk_label)}</span>
@@ -273,9 +421,11 @@ async function executeRepair(problemId) {
         const suffix = ok && outcome.journal_id ? ` (запись журнала #${outcome.journal_id})` : '';
         addMessage(outcome.message + suffix, ok ? 'system' : 'error');
         await refreshAfterChange();
+        return ok;
     } catch (err) {
         hideLoading();
         addMessage('Ошибка: ' + err.message, 'error');
+        return false;
     }
 }
 
@@ -284,11 +434,7 @@ function closeRepair() {
 }
 
 async function refreshAfterChange() {
-    const status = await API.get('/api/status');
-    if (status.has_scan) {
-        if (status.demo) await renderScan();
-        await runProblems();
-    }
+    await refreshPanels();
     await loadJournal();
 }
 
@@ -337,9 +483,11 @@ async function rollbackEntry(entryId) {
         hideLoading();
         addMessage(result.message, result.status === 'ok' ? 'system' : 'error');
         await refreshAfterChange();
+        return result.status === 'ok';
     } catch (err) {
         hideLoading();
         addMessage('Ошибка: ' + err.message, 'error');
+        return false;
     }
 }
 
@@ -383,6 +531,10 @@ async function openSettings() {
         const current = await API.get('/api/settings');
         document.getElementById('setting-backend').value = current.ai_backend;
         document.getElementById('setting-expert').checked = current.expert_mode;
+        document.getElementById('setting-model').value = current.openrouter_model;
+        document.getElementById('setting-key').value = '';
+        document.getElementById('setting-key').placeholder = current.openrouter_key_set
+            ? 'Ключ сохранён — введите новый, чтобы заменить' : 'sk-or-v1-…';
     } catch {}
     document.getElementById('settings-modal').classList.add('active');
 }
@@ -399,6 +551,36 @@ async function setLanguage(lang) {
 async function updateSetting(key, value) {
     await API.post('/api/settings', { [key]: value });
     if (key === 'expert_mode') await refreshAfterChange();  // availability of risky fixes changed
+    if (key === 'ai_backend') await updateAiBadge();
+}
+
+async function saveOpenRouter() {
+    const payload = { ai_backend: 'openrouter' };
+    const key = document.getElementById('setting-key').value.trim();
+    const model = document.getElementById('setting-model').value.trim();
+    if (key) payload.openrouter_api_key = key;
+    if (model) payload.openrouter_model = model;
+    const result = await API.post('/api/settings', payload);
+    document.getElementById('setting-backend').value = 'openrouter';
+    document.getElementById('setting-key').value = '';
+    document.getElementById('setting-key-status').textContent = result.ai_backend_active === 'openrouter'
+        ? '✔ Сохранено, AI-агент включён' : 'Ключ не задан — AI недоступен';
+    await updateAiBadge();
+}
+
+async function updateAiBadge() {
+    try {
+        const status = await API.get('/api/status');
+        const badge = document.getElementById('ai-badge');
+        if (!badge) return;
+        if (status.ai_available) {
+            badge.textContent = `AI: ${status.ai_model}${status.ai_agent ? ' · агент' : ''}`;
+            badge.style.borderColor = 'var(--green)';
+        } else {
+            badge.textContent = 'AI: отключён';
+            badge.style.borderColor = '';
+        }
+    } catch {}
 }
 
 /* ============================================================
@@ -432,14 +614,6 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        const status = await API.get('/api/status');
-        const badge = document.getElementById('ai-badge');
-        if (badge && status.ai_available) {
-            badge.textContent = `AI: ${status.ai_model}`;
-            badge.style.borderColor = 'var(--green)';
-        } else if (badge) {
-            badge.textContent = 'AI: отключён';
-        }
-    } catch {}
+    await updateAiBadge();
+    await refreshPanels();   // a scan may already exist (page reload, --demo)
 });

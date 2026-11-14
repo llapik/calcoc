@@ -34,6 +34,7 @@ calcoc/
 │   │   ├── app.py               # Flask app factory & CLI
 │   │   ├── config.py            # YAML config loader, data-dir path resolution
 │   │   ├── platform.py          # OS family, run mode (desktop/rescue), data dir
+│   │   ├── session.py           # AppSession: scan/problems/repair state shared by API and agent
 │   │   ├── i18n.py              # Backend message catalogue (ru/en)
 │   │   └── logger.py            # Logging setup
 │   ├── demo/
@@ -54,6 +55,8 @@ calcoc/
 │   │   └── problems.py          # Unified problem report
 │   ├── ai/                      # AI inference layer
 │   │   ├── engine.py            # Unified AI facade
+│   │   ├── agent.py             # Tool-calling loop, yields UI events
+│   │   ├── tools.py             # Tools the agent may call (read-only + proposals)
 │   │   ├── llama_backend.py     # Local GGUF via llama-cpp-python
 │   │   ├── openrouter.py        # OpenRouter cloud API
 │   │   ├── model_selector.py    # Pick model by available RAM
@@ -94,7 +97,8 @@ calcoc/
     ├── test_diagnostics.py
     ├── test_ai_engine.py
     ├── test_telemetry.py
-    └── test_repair.py           # End-to-end repair pipeline via demo scenarios
+    ├── test_repair.py           # End-to-end repair pipeline via demo scenarios
+    └── test_agent.py            # Agent loop with a scripted model, toolbox, stream parser
 ```
 
 ## Development Setup
@@ -156,7 +160,15 @@ The system dynamically selects an AI model based on available RAM (see `config/m
 - 8-16 GB: LLaMA 3 8B (Q4)
 - 16+ GB: LLaMA 3 8B (Q6) with GPU offload
 
-OpenRouter can be used as an alternative when internet is available.
+OpenRouter can be used as an alternative when internet is available; it is also used automatically
+when no local model fits and a key is configured.
+
+### AI agent
+With a tool-calling backend (currently OpenRouter) chat runs through `Agent` (`src/ai/agent.py`). Its
+tools (`src/ai/tools.py`) are read-only plus `propose_fix` / `propose_rollback`, which only show the user
+a confirmation card — the model must never get a tool that modifies the machine directly. Confirmed
+actions go through `AppSession.repair()` and are reported to the model on its next turn.
+Backends without tool calling fall back to plain chat with the scan summary as context.
 
 ### Safety System
 Every repair action has a risk level defined in `config/safety_rules.yaml`:
@@ -183,7 +195,8 @@ All API routes are in `src/web/routes.py`:
 - `POST /api/scan` — full system diagnostic
 - `POST /api/problems` — analyze for problems
 - `POST /api/chat` — AI chat (JSON)
-- `POST /api/chat/stream` — AI chat (SSE streaming)
+- `POST /api/chat/stream` — AI chat (SSE stream of agent events: token, tool_start/end, fix_proposal, …)
+- `GET /api/scan`, `GET /api/problems` — last results without re-running
 - `POST /api/safety/check` — check action risk level
 - `POST /api/upgrade` — upgrade recommendations
 - `POST /api/repair` — fix a problem by id (`dry_run` for the plan, `confirm` to execute)
@@ -219,6 +232,8 @@ All API routes are in `src/web/routes.py`:
 ## Working Guidelines
 
 - Read existing code before modifying it.
+- Session state lives in `AppSession`; routes and agent tools call it rather than keeping their own state.
+- Never commit API keys; UI-entered settings are stored in `<data_dir>/user_settings.yaml`.
 - Every repair action must go through `RepairExecutor` (which calls `SafetyClassifier.check()`); never call repair modules directly from routes or AI code.
 - Every destructive operation must create a backup via `BackupManager` first.
 - Never recommend BIOS flashing without explicit user consent + backup.
