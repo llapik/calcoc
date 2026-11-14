@@ -1,6 +1,7 @@
 """Main application entry-point for AI PC Repair & Optimizer."""
 
 import argparse
+import os
 from pathlib import Path
 
 from flask import Flask
@@ -9,18 +10,21 @@ from src.core.config import Config
 from src.core.logger import setup_logging, get_logger
 from src.web.routes import register_routes
 from src.ai.engine import AIEngine
+from src.repair.executor import RepairExecutor
+from src.rollback.backup import BackupManager
+from src.rollback.journal import Journal
 
 _SRC_DIR = Path(__file__).resolve().parent.parent
 
 log = get_logger("app")
 
 
-def create_app(config: Config | None = None) -> Flask:
+def create_app(config: Config | None = None, demo: str | None = None) -> Flask:
     """Build and return the Flask application."""
     if config is None:
         config = Config()
 
-    setup_logging(log_dir=config.settings.get("paths", {}).get("logs_dir"))
+    setup_logging(log_dir=config.path("logs_dir"))
 
     app = Flask(
         __name__,
@@ -34,9 +38,17 @@ def create_app(config: Config | None = None) -> Flask:
     engine = AIEngine(config)
     app.config["AI_ENGINE"] = engine
 
+    journal = Journal(config.file_path("journal_db"))
+    backups = BackupManager(config.path("backup_dir"), journal)
+    app.config["REPAIR_EXECUTOR"] = RepairExecutor(config, journal, backups)
+    app.config["DEMO_SCENARIO"] = demo or os.environ.get("CALCOC_DEMO") or None
+
     register_routes(app)
 
-    log.info("Application created  backend=%s  lang=%s", config.ai_backend, config.language)
+    log.info(
+        "Application created  backend=%s  lang=%s  mode=%s  data=%s",
+        config.ai_backend, config.language, config.mode, config.data_dir,
+    )
     return app
 
 
@@ -46,13 +58,17 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=None, help="Web server port")
     parser.add_argument("--config-dir", default=None, help="Path to config directory")
     parser.add_argument("--expert", action="store_true", help="Enable expert mode")
+    parser.add_argument(
+        "--demo", nargs="?", const="dying_hdd", default=None, metavar="SCENARIO",
+        help="Start with a demo scenario from data/demo instead of the real machine",
+    )
     args = parser.parse_args()
 
     config = Config(config_dir=args.config_dir)
     if args.expert:
         config.settings.setdefault("app", {})["expert_mode"] = True
 
-    app = create_app(config)
+    app = create_app(config, demo=args.demo)
     host = args.host or config.web_host
     port = args.port or config.web_port
     log.info("Starting web server on %s:%s", host, port)

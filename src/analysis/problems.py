@@ -30,6 +30,8 @@ class Problem:
     category: str = ""  # hardware | software | security | performance
     auto_fixable: bool = False
     fix_action: str = ""  # action key from safety_rules.yaml
+    key: str = ""  # stable identity across re-analysis (id is only a display number)
+    fix_params: dict = field(default_factory=dict)  # server-side arguments for the repair handler
 
 
 @dataclass
@@ -60,8 +62,15 @@ def analyze_all(
     snapshot: SystemSnapshot,
     mount_points: list[str] | None = None,
     scan_path: str | None = None,
+    host_checks: bool = True,
+    extra: list[Problem] | None = None,
 ) -> ProblemReport:
-    """Run all analysis modules and compile a unified problem report."""
+    """Run all analysis modules and compile a unified problem report.
+
+    ``host_checks=False`` skips everything that inspects the machine we run on (logs, ClamAV) —
+    used when *snapshot* describes another system, e.g. a demo scenario. ``extra`` problems are
+    appended as-is.
+    """
     report = ProblemReport()
     _id = 0
 
@@ -73,8 +82,11 @@ def analyze_all(
     # --- Performance analysis ---
     perf = performance.analyze(snapshot)
     for b in perf.bottlenecks:
+        if b.kind in ("smart_failing", "partition_full"):
+            continue  # reported below with more detail and a fix action
         report.problems.append(Problem(
             id=next_id(),
+            key=f"perf:{b.component}:{b.description}",
             title=b.description,
             description=b.recommendation,
             severity=Severity(b.severity),
@@ -84,18 +96,20 @@ def analyze_all(
 
     # --- Log analysis ---
     try:
-        log_result = log_analyzer.analyze(mount_points=mount_points)
-        if log_result.critical_count > 0:
+        log_result = log_analyzer.analyze(mount_points=mount_points) if host_checks else None
+        if log_result and log_result.critical_count > 0:
             report.problems.append(Problem(
                 id=next_id(),
+                key="logs:critical",
                 title=f"Найдено {log_result.critical_count} критических записей в логах",
                 description=log_result.summary,
                 severity=Severity.CRITICAL,
                 category="software",
             ))
-        if log_result.warning_count > 5:
+        if log_result and log_result.warning_count > 5:
             report.problems.append(Problem(
                 id=next_id(),
+                key="logs:warnings",
                 title=f"Найдено {log_result.warning_count} предупреждений в логах",
                 description="Рекомендуется детальный анализ системных логов",
                 severity=Severity.WARNING,
@@ -111,6 +125,7 @@ def analyze_all(
             if d.smart_healthy is False:
                 report.problems.append(Problem(
                     id=next_id(),
+                    key=f"smart_failing:{d.device}",
                     title=f"Диск {d.model} неисправен (S.M.A.R.T.)",
                     description="S.M.A.R.T. тест провален — срочно сделайте резервную копию данных!",
                     severity=Severity.CRITICAL,
@@ -122,6 +137,7 @@ def analyze_all(
                 if attr.status == "failing":
                     report.problems.append(Problem(
                         id=next_id(),
+                        key=f"smart_attr:{d.device}:{attr.id}",
                         title=f"S.M.A.R.T. атрибут {attr.name} критический ({d.model})",
                         description=(
                             f"Значение: {attr.value}, порог: {attr.threshold}, "
@@ -131,11 +147,13 @@ def analyze_all(
                         category="hardware",
                     ))
 
-            # Partition almost full (>95 %, >1 GB)
+            # Partition almost full (>90 %, >1 GB)
             for part in d.partitions:
-                if part.usage_percent > 95 and part.size_mb > 1024:
+                if part.usage_percent > 90 and part.size_mb > 1024:
                     report.problems.append(Problem(
                         id=next_id(),
+                        key=f"partition_full:{part.device}",
+                        fix_params={"device": part.device, "mount_point": part.mount_point},
                         title=f"Раздел {part.device} почти полон ({part.usage_percent:.0f}%)",
                         description="Очистите временные файлы для освобождения места",
                         severity=Severity.WARNING,
@@ -145,12 +163,14 @@ def analyze_all(
                     ))
 
     # --- Malware scan (only when explicitly requested) ---
-    if scan_path and malware.check_clamav_available():
+    if host_checks and scan_path and malware.check_clamav_available():
         try:
             scan_result = malware.scan(scan_path)
             for hit in scan_result.hits[:20]:
                 report.problems.append(Problem(
                     id=next_id(),
+                    key=f"malware:{hit.file_path}",
+                    fix_params={"files": [hit.file_path]},
                     title=f"Обнаружено вредоносное ПО: {hit.signature}",
                     description=f"Файл: {hit.file_path}",
                     severity=Severity.CRITICAL,
@@ -161,7 +181,11 @@ def analyze_all(
         except Exception as exc:
             log.warning("Malware scan failed: %s", exc)
 
-    # Sort: critical → warning → info
+    report.problems.extend(extra or [])
+
+    # Sort: critical → warning → info, then number in display order
     report.problems.sort(key=lambda p: _SEVERITY_ORDER.get(p.severity, 99))
+    for n, p in enumerate(report.problems, start=1):
+        p.id = f"P{n:03d}"
 
     return report

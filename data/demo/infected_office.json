@@ -1,0 +1,233 @@
+{
+ "title": {
+  "ru": "Домашний ПК: вирусы и мусор",
+  "en": "Home PC: malware and junk"
+ },
+ "description": {
+  "ru": "Майнер и троян в автозагрузке, память занята на 91%, системный SSD почти полон.",
+  "en": "A miner and a trojan in autorun, RAM 91% used, system SSD nearly full."
+ },
+ "snapshot": {
+  "cpu": {
+   "model": "AMD Ryzen 5 3400G with Radeon Vega Graphics",
+   "vendor": "AuthenticAMD",
+   "cores_physical": 4,
+   "cores_logical": 8,
+   "frequency_mhz": 3700,
+   "frequency_max_mhz": 4200,
+   "temperature_c": 71.5,
+   "architecture": "x86_64",
+   "usage_percent": 93.0
+  },
+  "memory": {
+   "total_mb": 8192,
+   "available_mb": 730,
+   "used_mb": 7462,
+   "swap_total_mb": 8192,
+   "swap_used_mb": 5210,
+   "usage_percent": 91.1,
+   "max_capacity_mb": 65536,
+   "slots": [
+    {
+     "locator": "DIMM_A2",
+     "size_mb": 8192,
+     "type": "DDR4",
+     "speed_mhz": 2666,
+     "manufacturer": "Crucial"
+    }
+   ]
+  },
+  "disk": {
+   "devices": [
+    {
+     "device": "/dev/sda",
+     "model": "KINGSTON SA400S37240G",
+     "serial": "50026B77DEMO03",
+     "size_gb": 223.6,
+     "type": "SSD",
+     "interface": "SATA 6.0 Gb/s",
+     "smart_healthy": true,
+     "temperature_c": 38,
+     "power_on_hours": 12840,
+     "smart_attrs": [],
+     "partitions": [
+      {
+       "device": "/dev/sda1",
+       "mount_point": "",
+       "filesystem": "vfat",
+       "size_mb": 100,
+       "used_mb": 0,
+       "usage_percent": 0.0
+      },
+      {
+       "device": "/dev/sda3",
+       "mount_point": "C:",
+       "filesystem": "ntfs",
+       "size_mb": 228270,
+       "used_mb": 212290,
+       "usage_percent": 93.0
+      }
+     ]
+    }
+   ]
+  },
+  "gpu": {
+   "devices": [
+    {
+     "name": "Radeon Vega 11 Graphics",
+     "vendor": "Advanced Micro Devices, Inc.",
+     "driver": "amdgpu",
+     "vram_mb": 2048
+    }
+   ]
+  },
+  "motherboard": {
+   "manufacturer": "Gigabyte Technology Co., Ltd.",
+   "product_name": "B450M DS3H",
+   "bios_vendor": "American Megatrends Inc.",
+   "bios_version": "F50",
+   "bios_date": "11/27/2019",
+   "chassis_type": "Desktop"
+  },
+  "os": {
+   "boot_mode": "UEFI",
+   "detected": [
+    {
+     "name": "Windows",
+     "version": "Windows 10 Pro",
+     "build": "19045",
+     "architecture": "x64",
+     "partition": "/dev/sda3",
+     "boot_type": "UEFI"
+    }
+   ]
+  },
+  "network": {
+   "interfaces": [
+    {
+     "name": "enp3s0",
+     "mac": "3c:97:0e:aa:12:7f",
+     "ipv4": "192.168.1.52/24",
+     "state": "up",
+     "speed_mbps": 1000
+    }
+   ],
+   "internet_available": true,
+   "dns_working": true,
+   "gateway": "192.168.1.1"
+  }
+ },
+ "problems": [
+  {
+   "key": "malware:miner",
+   "severity": "critical",
+   "category": "security",
+   "fix_action": "remove_malware",
+   "files": [
+    "infected/Users/home/AppData/Roaming/WinSvcHost/svchost64.exe"
+   ],
+   "title": {
+    "ru": "Обнаружен скрытый майнер: Win.Coinminer.Generic-DEMO",
+    "en": "Hidden miner found: Win.Coinminer.Generic-DEMO"
+   },
+   "description": {
+    "ru": "Файл AppData\\Roaming\\WinSvcHost\\svchost64.exe маскируется под системный процесс и грузит CPU на 93%.",
+    "en": "AppData\\Roaming\\WinSvcHost\\svchost64.exe poses as a system process and keeps the CPU at 93%."
+   }
+  },
+  {
+   "key": "malware:trojan",
+   "severity": "critical",
+   "category": "security",
+   "fix_action": "remove_malware",
+   "files": [
+    "infected/Users/home/Downloads/KMS_activator.exe",
+    "infected/ProgramData/upd/helper.dll"
+   ],
+   "title": {
+    "ru": "Обнаружен троян: Win.Trojan.Agent-DEMO (2 файла)",
+    "en": "Trojan found: Win.Trojan.Agent-DEMO (2 files)"
+   },
+   "description": {
+    "ru": "Downloads\\KMS_activator.exe и установленная им библиотека ProgramData\\upd\\helper.dll.",
+    "en": "Downloads\\KMS_activator.exe and the ProgramData\\upd\\helper.dll library it installed."
+   }
+  },
+  {
+   "key": "registry:autorun",
+   "severity": "warning",
+   "category": "software",
+   "fix_action": "fix_registry_errors",
+   "title": {
+    "ru": "4 записи автозагрузки ведут на несуществующие файлы",
+    "en": "4 autorun entries point to missing files"
+   },
+   "description": {
+    "ru": "Остатки удалённых программ в HKLM\\...\\Run замедляют вход в систему.",
+    "en": "Leftovers of uninstalled programs in HKLM\\...\\Run slow down sign-in."
+   }
+  }
+ ],
+ "on_fix": {
+  "partition_full:/dev/sda3": [
+   {
+    "path": "disk.devices.0.partitions.1.used_mb",
+    "value": 198590
+   },
+   {
+    "path": "disk.devices.0.partitions.1.usage_percent",
+    "value": 87.0
+   }
+  ],
+  "malware:miner": [
+   {
+    "path": "cpu.usage_percent",
+    "value": 17.0
+   },
+   {
+    "path": "cpu.temperature_c",
+    "value": 52.0
+   },
+   {
+    "path": "memory.used_mb",
+    "value": 5570
+   },
+   {
+    "path": "memory.available_mb",
+    "value": 2622
+   },
+   {
+    "path": "memory.usage_percent",
+    "value": 68.0
+   },
+   {
+    "path": "memory.swap_used_mb",
+    "value": 1900
+   }
+  ]
+ },
+ "sandbox": {
+  "junk": [
+   {
+    "path": "Windows/Temp/dd_vcredist.log",
+    "size_kb": 192
+   },
+   {
+    "path": "Windows/Prefetch/SVCHOST64.EXE-1A2B.pf",
+    "size_kb": 48
+   },
+   {
+    "path": "Users/home/AppData/Local/Temp/Rar$EXa0.418/setup.msi",
+    "size_kb": 2048
+   },
+   {
+    "path": "Users/home/AppData/Local/Temp/tmp8F21.tmp",
+    "size_kb": 384
+   },
+   {
+    "path": "Users/home/AppData/Local/Microsoft/Windows/INetCache/IE/9XK2/banner.swf",
+    "size_kb": 96
+   }
+  ]
+ }
+}

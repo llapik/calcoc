@@ -2,7 +2,6 @@
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from src.core.logger import get_logger
 from src.diagnostics.collector import SystemSnapshot

@@ -6,14 +6,18 @@ app:
   web_host: "127.0.0.1"
   web_port: 8080
 
+# Paths are relative to data_dir unless absolute.
+# data_dir "auto": ~/.local/share/calcoc (Linux), %LOCALAPPDATA%\\calcoc (Windows),
+# /mnt/usb_data when booted from the USB stick. Override with CALCOC_DATA_DIR.
 paths:
-  backup_dir: "/mnt/usb_data/backups"
-  journal_db: "/mnt/usb_data/journal.db"
-  telemetry_db: "/mnt/usb_data/telemetry.db"
-  models_dir: "/mnt/usb_data/models"
-  clamav_db: "/mnt/usb_data/clamav"
-  knowledge_dir: "/mnt/usb_data/knowledge"
-  logs_dir: "/mnt/usb_data/logs"
+  data_dir: "auto"
+  backup_dir: "backups"
+  journal_db: "journal.db"
+  telemetry_db: "telemetry.db"
+  models_dir: "models"
+  clamav_db: "clamav"
+  knowledge_dir: "knowledge"
+  logs_dir: "logs"
 
 ai:
   backend: "llama"  # llama | openrouter | none
@@ -40,3 +44,4 @@ safety:
   require_confirmation: true
   max_risk_level: "yellow"  # green | yellow | red (black always blocked)
   auto_backup: true
+  cleanup_min_age_hours: 24  # desktop mode: only temp files older than this are removed

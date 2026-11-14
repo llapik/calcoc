@@ -1,0 +1,228 @@
+{
+ "title": {
+  "ru": "Офисный ПК 2012 года: умирающий диск",
+  "en": "2012 office PC: dying hard drive"
+ },
+ "description": {
+  "ru": "Старый HDD с переназначенными секторами, системный раздел забит на 95%, памяти в обрез.",
+  "en": "Old HDD with reallocated sectors, system partition 95% full, barely enough RAM."
+ },
+ "snapshot": {
+  "cpu": {
+   "model": "Intel(R) Core(TM) i3-2120 CPU @ 3.30GHz",
+   "vendor": "GenuineIntel",
+   "cores_physical": 2,
+   "cores_logical": 4,
+   "frequency_mhz": 3300,
+   "frequency_max_mhz": 3300,
+   "temperature_c": 58.0,
+   "architecture": "x86_64",
+   "usage_percent": 41.0
+  },
+  "memory": {
+   "total_mb": 4096,
+   "available_mb": 690,
+   "used_mb": 3406,
+   "swap_total_mb": 4096,
+   "swap_used_mb": 2630,
+   "usage_percent": 83.2,
+   "max_capacity_mb": 16384,
+   "slots": [
+    {
+     "locator": "DIMM_A1",
+     "size_mb": 2048,
+     "type": "DDR3",
+     "speed_mhz": 1333,
+     "manufacturer": "Kingston"
+    },
+    {
+     "locator": "DIMM_B1",
+     "size_mb": 2048,
+     "type": "DDR3",
+     "speed_mhz": 1333,
+     "manufacturer": "Kingston"
+    }
+   ]
+  },
+  "disk": {
+   "devices": [
+    {
+     "device": "/dev/sda",
+     "model": "WDC WD5000AAKX-00ERMA0",
+     "serial": "WD-WCC2E0DEMO01",
+     "size_gb": 465.8,
+     "type": "HDD",
+     "interface": "SATA 6.0 Gb/s",
+     "smart_healthy": false,
+     "temperature_c": 47,
+     "power_on_hours": 41250,
+     "smart_attrs": [
+      {
+       "id": 5,
+       "name": "Reallocated_Sector_Ct",
+       "value": 12,
+       "worst": 12,
+       "threshold": 36,
+       "raw_value": "1864",
+       "status": "failing"
+      },
+      {
+       "id": 9,
+       "name": "Power_On_Hours",
+       "value": 44,
+       "worst": 44,
+       "threshold": 0,
+       "raw_value": "41250",
+       "status": "ok"
+      },
+      {
+       "id": 197,
+       "name": "Current_Pending_Sector",
+       "value": 98,
+       "worst": 96,
+       "threshold": 0,
+       "raw_value": "48",
+       "status": "warning"
+      },
+      {
+       "id": 198,
+       "name": "Offline_Uncorrectable",
+       "value": 100,
+       "worst": 99,
+       "threshold": 0,
+       "raw_value": "11",
+       "status": "warning"
+      },
+      {
+       "id": 194,
+       "name": "Temperature_Celsius",
+       "value": 96,
+       "worst": 88,
+       "threshold": 0,
+       "raw_value": "47",
+       "status": "ok"
+      }
+     ],
+     "partitions": [
+      {
+       "device": "/dev/sda1",
+       "mount_point": "",
+       "filesystem": "ntfs",
+       "size_mb": 100,
+       "used_mb": 0,
+       "usage_percent": 0.0
+      },
+      {
+       "device": "/dev/sda2",
+       "mount_point": "C:",
+       "filesystem": "ntfs",
+       "size_mb": 476837,
+       "used_mb": 452995,
+       "usage_percent": 95.0
+      }
+     ]
+    }
+   ]
+  },
+  "gpu": {
+   "devices": [
+    {
+     "name": "HD Graphics 2000",
+     "vendor": "Intel Corporation",
+     "driver": "i915",
+     "vram_mb": 0
+    }
+   ]
+  },
+  "motherboard": {
+   "manufacturer": "ASUSTeK COMPUTER INC.",
+   "product_name": "P8H61-M LX",
+   "bios_vendor": "American Megatrends Inc.",
+   "bios_version": "0407",
+   "bios_date": "06/27/2011",
+   "chassis_type": "Desktop"
+  },
+  "os": {
+   "boot_mode": "Legacy",
+   "detected": [
+    {
+     "name": "Windows",
+     "version": "Windows 10 Home",
+     "build": "19045",
+     "architecture": "x64",
+     "partition": "/dev/sda2",
+     "boot_type": "Legacy"
+    }
+   ]
+  },
+  "network": {
+   "interfaces": [
+    {
+     "name": "enp3s0",
+     "mac": "3c:97:0e:aa:12:7f",
+     "ipv4": "192.168.1.34/24",
+     "state": "up",
+     "speed_mbps": 1000
+    }
+   ],
+   "internet_available": true,
+   "dns_working": true,
+   "gateway": "192.168.1.1"
+  }
+ },
+ "problems": [
+  {
+   "key": "logs:io_errors",
+   "severity": "critical",
+   "category": "hardware",
+   "title": {
+    "ru": "37 ошибок ввода-вывода диска за последние сутки",
+    "en": "37 disk I/O errors in the last 24 hours"
+   },
+   "description": {
+    "ru": "В журнале ядра: «ata1.00: failed command: READ DMA», «Buffer I/O error on dev sda2». Диск не может прочитать часть секторов.",
+    "en": "Kernel log: “ata1.00: failed command: READ DMA”, “Buffer I/O error on dev sda2”. The drive cannot read some sectors."
+   }
+  }
+ ],
+ "on_fix": {
+  "partition_full:/dev/sda2": [
+   {
+    "path": "disk.devices.0.partitions.1.used_mb",
+    "value": 421330
+   },
+   {
+    "path": "disk.devices.0.partitions.1.usage_percent",
+    "value": 88.4
+   }
+  ]
+ },
+ "sandbox": {
+  "junk": [
+   {
+    "path": "Windows/Temp/MpCmdRun.log",
+    "size_kb": 96
+   },
+   {
+    "path": "Windows/Temp/cab_3712_2",
+    "size_kb": 640
+   },
+   {
+    "path": "Windows/SoftwareDistribution/Download/a41f.psf",
+    "size_kb": 1024
+   },
+   {
+    "path": "Users/office/AppData/Local/Temp/~DF31A9.tmp",
+    "size_kb": 256
+   },
+   {
+    "path": "Users/office/AppData/Local/Temp/chrome_drag4411/setup.exe.part",
+    "size_kb": 512
+   },
+   {
+    "path": "Users/office/AppData/Local/Temp/wct8A1F.tmp",
+    "size_kb": 128
+   }
+  ]
+ }
+}

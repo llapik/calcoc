@@ -1,10 +1,9 @@
 """Operation journal — tracks every action for rollback and audit."""
 
-import json
 import sqlite3
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from pathlib import Path
 
 from src.core.logger import get_logger
@@ -22,7 +21,7 @@ class JournalEntry:
     risk_level: str = "green"
     backup_path: str = ""
     rollback_cmd: str = ""
-    status: str = "pending"  # pending | completed | rolled_back | failed
+    status: str = "pending"  # pending | completed | rolled_back | failed | purged
     session_id: str = ""
 
 
@@ -75,14 +74,15 @@ class Journal:
         backup_path: str = "",
         rollback_cmd: str = "",
         session_id: str = "",
+        status: str = "completed",
     ) -> int:
         """Record a new operation in the journal. Returns the entry ID."""
         with self._connect() as conn:
             cursor = conn.execute(
                 """INSERT INTO journal
                    (timestamp, action, target, details, risk_level, backup_path, rollback_cmd, status, session_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?)""",
-                (time.time(), action, target, details, risk_level, backup_path, rollback_cmd, session_id),
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (time.time(), action, target, details, risk_level, backup_path, rollback_cmd, status, session_id),
             )
             entry_id = cursor.lastrowid
             log.info("Journal entry #%d: %s on %s", entry_id, action, target)

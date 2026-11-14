@@ -45,9 +45,7 @@ class AIEngine:
         self._initialized = True
 
         # Knowledge base (always, if available)
-        knowledge_dir = self.config.settings.get("paths", {}).get("knowledge_dir")
-        if knowledge_dir:
-            self._knowledge = KnowledgeBase(knowledge_dir)
+        self._knowledge = KnowledgeBase(self.config.knowledge_dir)
 
         if self._backend == "openrouter":
             self._init_openrouter()
@@ -73,7 +71,7 @@ class AIEngine:
         log.info("AI backend: OpenRouter (%s)", self.config.openrouter_model)
 
     def _init_llama(self) -> None:
-        models_dir = self.config.settings.get("paths", {}).get("models_dir", "/mnt/usb_data/models")
+        models_dir = self.config.path("models_dir")
         self._selected_model = select_model(self.config.models, models_dir)
 
         if self._selected_model.name == "none" or self._selected_model.file is None:

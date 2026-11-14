@@ -1,0 +1,186 @@
+{
+ "title": {
+  "ru": "ПК не загружается: повреждён загрузчик",
+  "en": "PC will not boot: damaged bootloader"
+ },
+ "description": {
+  "ru": "После отключения питания Windows не стартует: ошибки NTFS и повреждённый загрузчик. Показывает работу уровней риска.",
+  "en": "After a power cut Windows will not start: NTFS errors and a damaged bootloader. Shows how risk levels gate actions."
+ },
+ "snapshot": {
+  "cpu": {
+   "model": "Intel(R) Pentium(R) CPU G4560 @ 3.50GHz",
+   "vendor": "GenuineIntel",
+   "cores_physical": 2,
+   "cores_logical": 4,
+   "frequency_mhz": 3500,
+   "frequency_max_mhz": 3500,
+   "temperature_c": 39.0,
+   "architecture": "x86_64",
+   "usage_percent": 6.0
+  },
+  "memory": {
+   "total_mb": 8192,
+   "available_mb": 6890,
+   "used_mb": 1302,
+   "swap_total_mb": 0,
+   "swap_used_mb": 0,
+   "usage_percent": 15.9,
+   "max_capacity_mb": 32768,
+   "slots": [
+    {
+     "locator": "DIMM_A1",
+     "size_mb": 8192,
+     "type": "DDR4",
+     "speed_mhz": 2400,
+     "manufacturer": "Patriot"
+    }
+   ]
+  },
+  "disk": {
+   "devices": [
+    {
+     "device": "/dev/sda",
+     "model": "ST1000DM010-2EP102",
+     "serial": "ZN1DEMO04",
+     "size_gb": 931.5,
+     "type": "HDD",
+     "interface": "SATA 6.0 Gb/s",
+     "smart_healthy": true,
+     "temperature_c": 34,
+     "power_on_hours": 18900,
+     "smart_attrs": [
+      {
+       "id": 5,
+       "name": "Reallocated_Sector_Ct",
+       "value": 100,
+       "worst": 100,
+       "threshold": 10,
+       "raw_value": "0",
+       "status": "ok"
+      },
+      {
+       "id": 199,
+       "name": "UDMA_CRC_Error_Count",
+       "value": 200,
+       "worst": 200,
+       "threshold": 0,
+       "raw_value": "0",
+       "status": "ok"
+      }
+     ],
+     "partitions": [
+      {
+       "device": "/dev/sda1",
+       "mount_point": "",
+       "filesystem": "ntfs",
+       "size_mb": 549,
+       "used_mb": 0,
+       "usage_percent": 0.0
+      },
+      {
+       "device": "/dev/sda2",
+       "mount_point": "",
+       "filesystem": "ntfs",
+       "size_mb": 953320,
+       "used_mb": 0,
+       "usage_percent": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  "gpu": {
+   "devices": [
+    {
+     "name": "GeForce GT 1030",
+     "vendor": "NVIDIA",
+     "driver": "nouveau",
+     "vram_mb": 2048,
+     "temperature_c": 36
+    }
+   ]
+  },
+  "motherboard": {
+   "manufacturer": "MSI",
+   "product_name": "H110M PRO-VD (MS-7996)",
+   "bios_vendor": "American Megatrends Inc.",
+   "bios_version": "2.H0",
+   "bios_date": "07/09/2018",
+   "chassis_type": "Desktop"
+  },
+  "os": {
+   "boot_mode": "Legacy",
+   "detected": []
+  },
+  "network": {
+   "interfaces": [
+    {
+     "name": "enp3s0",
+     "mac": "3c:97:0e:aa:12:7f",
+     "ipv4": "192.168.1.80/24",
+     "state": "up",
+     "speed_mbps": 1000
+    }
+   ],
+   "internet_available": true,
+   "dns_working": true,
+   "gateway": "192.168.1.1"
+  }
+ },
+ "problems": [
+  {
+   "key": "fs:dirty:/dev/sda2",
+   "severity": "critical",
+   "category": "software",
+   "fix_action": "fix_filesystem",
+   "title": {
+    "ru": "Файловая система NTFS на /dev/sda2 повреждена",
+    "en": "NTFS filesystem on /dev/sda2 is damaged"
+   },
+   "description": {
+    "ru": "Том помечен как «грязный», журнал $LogFile не воспроизведён. Раздел не монтируется, поэтому Windows на нём не видна.",
+    "en": "The volume is flagged dirty and its $LogFile journal was not replayed. The partition will not mount, so Windows on it is not detected."
+   }
+  },
+  {
+   "key": "boot:mbr:/dev/sda",
+   "severity": "critical",
+   "category": "software",
+   "fix_action": "fix_bootloader",
+   "title": {
+    "ru": "Загрузчик повреждён: BOOTMGR is missing",
+    "en": "Bootloader damaged: BOOTMGR is missing"
+   },
+   "description": {
+    "ru": "Загрузочный код MBR и хранилище BCD не проходят проверку. Исправление относится к высокому риску.",
+    "en": "The MBR boot code and the BCD store fail verification. The fix is classed as high risk."
+   }
+  }
+ ],
+ "on_fix": {
+  "fs:dirty:/dev/sda2": [
+   {
+    "path": "disk.devices.0.partitions.1.used_mb",
+    "value": 412700
+   },
+   {
+    "path": "disk.devices.0.partitions.1.usage_percent",
+    "value": 43.3
+   },
+   {
+    "path": "os.detected",
+    "value": [
+     {
+      "name": "Windows",
+      "version": "Windows 10 Home",
+      "build": "19045",
+      "architecture": "x64",
+      "partition": "/dev/sda2",
+      "boot_type": "Legacy"
+     }
+    ]
+   }
+  ]
+ }
+}

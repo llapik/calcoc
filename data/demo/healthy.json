@@ -1,0 +1,127 @@
+{
+ "title": {
+  "ru": "Современный ПК без проблем",
+  "en": "Modern PC in good health"
+ },
+ "description": {
+  "ru": "Для сравнения: так выглядит здоровая система.",
+  "en": "For comparison: what a healthy system looks like."
+ },
+ "snapshot": {
+  "cpu": {
+   "model": "AMD Ryzen 7 7700 8-Core Processor",
+   "vendor": "AuthenticAMD",
+   "cores_physical": 8,
+   "cores_logical": 16,
+   "frequency_mhz": 3800,
+   "frequency_max_mhz": 5300,
+   "temperature_c": 44.0,
+   "architecture": "x86_64",
+   "usage_percent": 7.0
+  },
+  "memory": {
+   "total_mb": 32768,
+   "available_mb": 24900,
+   "used_mb": 7868,
+   "swap_total_mb": 8192,
+   "swap_used_mb": 0,
+   "usage_percent": 24.0,
+   "max_capacity_mb": 131072,
+   "slots": [
+    {
+     "locator": "DIMM_A2",
+     "size_mb": 16384,
+     "type": "DDR5",
+     "speed_mhz": 6000,
+     "manufacturer": "G.Skill"
+    },
+    {
+     "locator": "DIMM_B2",
+     "size_mb": 16384,
+     "type": "DDR5",
+     "speed_mhz": 6000,
+     "manufacturer": "G.Skill"
+    }
+   ]
+  },
+  "disk": {
+   "devices": [
+    {
+     "device": "/dev/nvme0n1",
+     "model": "WD_BLACK SN850X 1000GB",
+     "serial": "2244DEMO05",
+     "size_gb": 931.5,
+     "type": "NVMe",
+     "interface": "NVMe",
+     "smart_healthy": true,
+     "temperature_c": 41,
+     "power_on_hours": 2130,
+     "smart_attrs": [],
+     "partitions": [
+      {
+       "device": "/dev/nvme0n1p1",
+       "mount_point": "/boot/efi",
+       "filesystem": "vfat",
+       "size_mb": 1024,
+       "used_mb": 62,
+       "usage_percent": 6.1
+      },
+      {
+       "device": "/dev/nvme0n1p2",
+       "mount_point": "/",
+       "filesystem": "btrfs",
+       "size_mb": 952800,
+       "used_mb": 352500,
+       "usage_percent": 37.0
+      }
+     ]
+    }
+   ]
+  },
+  "gpu": {
+   "devices": [
+    {
+     "name": "GeForce RTX 4070",
+     "vendor": "NVIDIA",
+     "driver": "nvidia",
+     "vram_mb": 12282,
+     "temperature_c": 46,
+     "clock_mhz": 2475
+    }
+   ]
+  },
+  "motherboard": {
+   "manufacturer": "ASRock",
+   "product_name": "B650M Pro RS",
+   "bios_vendor": "American Megatrends International, LLC.",
+   "bios_version": "3.08",
+   "bios_date": "09/18/2024",
+   "chassis_type": "Desktop"
+  },
+  "os": {
+   "boot_mode": "UEFI",
+   "detected": [
+    {
+     "name": "Fedora Linux 42 (Workstation Edition)",
+     "version": "42",
+     "partition": "/dev/nvme0n1p2",
+     "boot_type": "UEFI"
+    }
+   ]
+  },
+  "network": {
+   "interfaces": [
+    {
+     "name": "enp3s0",
+     "mac": "3c:97:0e:aa:12:7f",
+     "ipv4": "192.168.1.10/24",
+     "state": "up",
+     "speed_mbps": 1000
+    }
+   ],
+   "internet_available": true,
+   "dns_working": true,
+   "gateway": "192.168.1.1"
+  }
+ }
+}
