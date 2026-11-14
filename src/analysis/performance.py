@@ -14,6 +14,7 @@ class Bottleneck:
     severity: str = "info"  # info | warning | critical
     description: str = ""
     recommendation: str = ""
+    kind: str = ""  # machine-readable tag for findings other analysers also report
 
 
 @dataclass
@@ -138,6 +139,7 @@ def _check_disk(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
                 severity="critical",
                 description=f"Диск {d.model} ({d.device}) — S.M.A.R.T. FAILING",
                 recommendation="СРОЧНО сделайте резервную копию данных! Диск может выйти из строя",
+                kind="smart_failing",
             ))
             report.score -= 30
 
@@ -167,6 +169,7 @@ def _check_disk(snapshot: SystemSnapshot, report: PerformanceReport) -> None:
                     severity="warning",
                     description=f"Раздел {part.device} заполнен на {part.usage_percent}%",
                     recommendation="Освободите место — очистите временные файлы или переместите данные",
+                    kind="partition_full",
                 ))
                 report.score -= 10
 

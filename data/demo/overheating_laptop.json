@@ -1,0 +1,142 @@
+{
+ "title": {
+  "ru": "Игровой ноутбук: перегрев и троттлинг",
+  "en": "Gaming laptop: overheating and throttling"
+ },
+ "description": {
+  "ru": "CPU 97°C, GPU 93°C, частота процессора урезана почти вдвое. Программно не чинится — нужен совет.",
+  "en": "CPU at 97°C, GPU at 93°C, CPU frequency cut almost in half. Not fixable in software — needs advice."
+ },
+ "snapshot": {
+  "cpu": {
+   "model": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+   "vendor": "GenuineIntel",
+   "cores_physical": 6,
+   "cores_logical": 12,
+   "frequency_mhz": 2390,
+   "frequency_max_mhz": 4500,
+   "temperature_c": 97.0,
+   "architecture": "x86_64",
+   "usage_percent": 64.0
+  },
+  "memory": {
+   "total_mb": 16384,
+   "available_mb": 6020,
+   "used_mb": 10364,
+   "swap_total_mb": 2048,
+   "swap_used_mb": 120,
+   "usage_percent": 63.3,
+   "max_capacity_mb": 32768,
+   "slots": [
+    {
+     "locator": "ChannelA-DIMM0",
+     "size_mb": 8192,
+     "type": "DDR4",
+     "speed_mhz": 2666,
+     "manufacturer": "Samsung"
+    },
+    {
+     "locator": "ChannelB-DIMM0",
+     "size_mb": 8192,
+     "type": "DDR4",
+     "speed_mhz": 2666,
+     "manufacturer": "Samsung"
+    }
+   ]
+  },
+  "disk": {
+   "devices": [
+    {
+     "device": "/dev/nvme0n1",
+     "model": "SAMSUNG MZVLB512HAJQ-000L2",
+     "serial": "S3RGNX0DEMO02",
+     "size_gb": 476.9,
+     "type": "NVMe",
+     "interface": "NVMe",
+     "smart_healthy": true,
+     "temperature_c": 61,
+     "power_on_hours": 9120,
+     "smart_attrs": [],
+     "partitions": [
+      {
+       "device": "/dev/nvme0n1p1",
+       "mount_point": "/boot/efi",
+       "filesystem": "vfat",
+       "size_mb": 512,
+       "used_mb": 36,
+       "usage_percent": 7.0
+      },
+      {
+       "device": "/dev/nvme0n1p2",
+       "mount_point": "/",
+       "filesystem": "ext4",
+       "size_mb": 487000,
+       "used_mb": 301940,
+       "usage_percent": 62.0
+      }
+     ]
+    }
+   ]
+  },
+  "gpu": {
+   "devices": [
+    {
+     "name": "GeForce GTX 1660 Ti Mobile",
+     "vendor": "NVIDIA",
+     "driver": "nvidia",
+     "vram_mb": 6144,
+     "temperature_c": 93,
+     "clock_mhz": 1455
+    }
+   ]
+  },
+  "motherboard": {
+   "manufacturer": "LENOVO",
+   "product_name": "LNVNB161216",
+   "bios_vendor": "LENOVO",
+   "bios_version": "BHCN44WW",
+   "bios_date": "11/12/2020",
+   "chassis_type": "Notebook"
+  },
+  "os": {
+   "boot_mode": "UEFI",
+   "detected": [
+    {
+     "name": "Ubuntu 22.04.4 LTS",
+     "version": "22.04",
+     "partition": "/dev/nvme0n1p2",
+     "boot_type": "UEFI"
+    }
+   ]
+  },
+  "network": {
+   "interfaces": [
+    {
+     "name": "wlp0s20f3",
+     "mac": "3c:97:0e:aa:12:7f",
+     "ipv4": "192.168.0.107/24",
+     "state": "up",
+     "speed_mbps": 1000
+    }
+   ],
+   "internet_available": true,
+   "dns_working": true,
+   "gateway": "192.168.1.1"
+  }
+ },
+ "problems": [
+  {
+   "key": "cpu:throttling",
+   "severity": "warning",
+   "category": "hardware",
+   "title": {
+    "ru": "Процессор сбрасывает частоту из-за перегрева (троттлинг)",
+    "en": "CPU is throttling because of heat"
+   },
+   "description": {
+    "ru": "Текущая частота 2390 МГц при максимуме 4500 МГц. В журнале ядра 214 сообщений «Package temperature above threshold, cpu clock throttled».",
+    "en": "Current frequency is 2390 MHz of 4500 MHz maximum. The kernel log has 214 “Package temperature above threshold, cpu clock throttled” messages."
+   }
+  }
+ ]
+}

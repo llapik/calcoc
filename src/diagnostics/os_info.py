@@ -1,7 +1,6 @@
 """Detect installed operating systems on local drives."""
 
 import os
-import re
 import subprocess
 from dataclasses import dataclass, field
 
@@ -84,7 +83,7 @@ def _detect_windows_version(mount: str, detected: DetectedOS) -> None:
     try:
         reg_path = os.path.join(mount, "Windows", "System32", "config", "SOFTWARE")
         if os.path.isfile(reg_path):
-            from python_registry import Registry
+            from Registry import Registry
             reg = Registry.Registry(reg_path)
             key = reg.open("Microsoft\\Windows NT\\CurrentVersion")
             detected.name = "Windows"

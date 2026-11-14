@@ -87,6 +87,10 @@ class SafetyClassifier:
         log.info("Safety check: %s -> %s (allowed=%s)", action, risk, allowed)
         return verdict
 
+    def describe(self, action: str) -> str:
+        """Human-readable description of an action (empty if unknown)."""
+        return self._actions.get(action, {}).get("description", "")
+
     def get_risk_color(self, risk_level: str) -> str:
         """Return a CSS color for the risk level."""
         colors = {

@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 from src.core.logger import get_logger
 
 log = get_logger("ai.model_selector")

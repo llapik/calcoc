@@ -16,8 +16,15 @@
                 {% if expert_mode %}
                 <span class="badge badge-red">ЭКСПЕРТ</span>
                 {% endif %}
+                <span class="badge badge-demo" id="demo-badge" {% if not demo_id %}hidden{% endif %}>ДЕМО</span>
             </div>
             <div class="header-right">
+                <select id="demo-select" title="Источник данных" onchange="setDemo(this.value)">
+                    <option value="">🖥️ Этот компьютер</option>
+                    {% for s in scenarios %}
+                    <option value="{{ s.id }}" title="{{ s.description }}" {% if s.id == demo_id %}selected{% endif %}>Демо: {{ s.title }}</option>
+                    {% endfor %}
+                </select>
                 <select id="lang-select" onchange="setLanguage(this.value)">
                     <option value="ru" {% if language == 'ru' %}selected{% endif %}>Русский</option>
                     <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
@@ -109,7 +116,13 @@
 
                 <!-- History panel -->
                 <div class="panel" id="panel-history">
-                    <h2>Журнал операций</h2>
+                    <div class="panel-head">
+                        <h2>Журнал операций</h2>
+                        <button class="btn btn-sm" onclick="purgeBackups()"
+                                title="Удалить резервные копии и освободить место. Откат этих операций станет невозможен">
+                            🗑️ Удалить резервные копии
+                        </button>
+                    </div>
                     <div id="history-results" class="results-area">
                         <p class="placeholder">Журнал операций пуст.</p>
                     </div>
@@ -139,6 +152,30 @@
                             Режим эксперта
                         </label>
                         <p class="setting-hint">Разблокирует опасные операции (красный/чёрный уровень)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Repair confirmation modal -->
+        <div class="modal" id="repair-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="repair-title">Исправление</h3>
+                    <button class="btn-close" onclick="closeRepair()">×</button>
+                </div>
+                <div class="modal-body">
+                    <p><span class="risk-badge" id="repair-risk"></span></p>
+                    <p class="repair-plan" id="repair-plan"></p>
+                    <p class="setting-hint" id="repair-note"></p>
+                    <ul class="repair-steps">
+                        <li>✔ Проверка по правилам безопасности</li>
+                        <li id="repair-step-backup">✔ Резервная копия перед изменением</li>
+                        <li>✔ Запись в журнал с возможностью отката</li>
+                    </ul>
+                    <div class="modal-actions">
+                        <button class="btn" onclick="closeRepair()">Отмена</button>
+                        <button class="btn btn-primary" id="repair-confirm">Выполнить</button>
                     </div>
                 </div>
             </div>

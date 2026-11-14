@@ -1,4 +1,4 @@
-.PHONY: help setup test lint run build install-usb clean
+.PHONY: help setup test lint run demo build install-usb clean
 
 PYTHON ?= python3
 PIP ?= pip3
@@ -23,6 +23,9 @@ lint: ## Run linter
 
 run: ## Run the web application (development)
 	$(VENV_BIN)/python -m src.core.app
+
+demo: ## Run with a demo "sick PC" scenario (no real hardware touched)
+	$(VENV_BIN)/python -m src.core.app --demo
 
 build: ## Build bootable ISO image
 	bash scripts/build_iso.sh

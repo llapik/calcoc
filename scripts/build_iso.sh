@@ -62,6 +62,7 @@ cat > "${ROOTFS}/opt/calcoc/start.sh" << 'STARTUP'
 
 export PYTHONPATH=/opt/calcoc
 export HOME=/root
+export CALCOC_MODE=rescue   # offline repairs allowed; data lives on /mnt/usb_data
 
 # Parse kernel command line
 NOAI=false
@@ -111,7 +112,7 @@ if [ "$ROLLBACK" = true ]; then
     python3 -c "
 from src.rollback.backup import BackupManager
 from src.rollback.journal import Journal
-journal = Journal('/mnt/usb_data/journal.db')
+journal = Journal('/mnt/usb_data/journal.db')  # same paths Config resolves in rescue mode
 bm = BackupManager('/mnt/usb_data/backups', journal)
 if bm.rollback_last():
     print('Rollback successful')

@@ -5,6 +5,8 @@ from pathlib import Path
 
 import yaml
 
+from src.core import platform
+
 
 _ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 _CONFIG_DIR = _ROOT_DIR / "config"
@@ -96,9 +98,42 @@ class Config:
             "default_model", "meta-llama/llama-3-8b-instruct"
         )
 
-    def path(self, key: str) -> Path:
-        """Return a path from the ``paths`` section, creating it if needed."""
-        raw = self.settings.get("paths", {}).get(key, f"/tmp/calcoc/{key}")
+    @property
+    def mode(self) -> str:
+        """``desktop`` (inside a running OS) or ``rescue`` (booted from USB)."""
+        return platform.run_mode()
+
+    @property
+    def data_dir(self) -> Path:
+        """Root for journal, backups, telemetry and logs."""
+        raw = self.settings.get("paths", {}).get("data_dir", "auto")
+        return platform.default_data_dir() if raw in ("", "auto", None) else Path(raw)
+
+    def _resolve(self, key: str) -> Path:
+        raw = self.settings.get("paths", {}).get(key) or key
         p = Path(raw)
+        return p if p.is_absolute() else self.data_dir / p
+
+    def path(self, key: str) -> Path:
+        """Return a directory from the ``paths`` section (relative to ``data_dir``), creating it."""
+        p = self._resolve(key)
         p.mkdir(parents=True, exist_ok=True)
         return p
+
+    def file_path(self, key: str) -> Path:
+        """Return a file path from the ``paths`` section, creating its parent directory."""
+        p = self._resolve(key)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @property
+    def knowledge_dir(self) -> Path:
+        """User knowledge base if present, otherwise the one bundled with the app."""
+        custom = self._resolve("knowledge_dir")
+        if custom.is_dir() and any(custom.glob("*.json")):
+            return custom
+        return _ROOT_DIR / "data" / "knowledge"
+
+    @property
+    def demo_dir(self) -> Path:
+        return _ROOT_DIR / "data" / "demo"

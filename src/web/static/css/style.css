@@ -478,3 +478,53 @@ select {
         display: none;
     }
 }
+
+/* ---- Repair, journal, demo ---- */
+.badge-demo { border-color: var(--yellow); color: var(--yellow); }
+[hidden] { display: none !important; }
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.problem-card.fixed { border-left-color: var(--green); opacity: 0.75; }
+.severity-fixed { background: var(--green); color: white; }
+.problem-card .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.fix-note { color: var(--text-secondary); font-size: 0.82rem; flex-basis: 100%; }
+
+.risk-badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+.risk-green { border-color: var(--green); }
+.risk-yellow { border-color: var(--yellow); }
+.risk-red { border-color: var(--red); }
+
+.repair-plan { margin: 0.9rem 0 0.4rem; line-height: 1.45; }
+.repair-steps { list-style: none; margin: 0.9rem 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
+
+.journal-entry {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--green);
+    border-radius: var(--radius);
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.6rem;
+}
+.journal-entry.status-rolled_back, .journal-entry.status-purged { border-left-color: var(--text-secondary); opacity: 0.7; }
+.journal-entry.status-failed { border-left-color: var(--red); }
+.journal-main { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; }
+.journal-id { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.journal-status { margin-left: auto; color: var(--text-secondary); font-size: 0.85rem; }
+.journal-entry .desc { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.3rem; overflow-wrap: anywhere; }
+.journal-entry .actions { margin-top: 0.6rem; }

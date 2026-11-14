@@ -32,8 +32,12 @@ calcoc/
 ├── src/
 │   ├── core/                    # App entry, config, logging
 │   │   ├── app.py               # Flask app factory & CLI
-│   │   ├── config.py            # YAML config loader
+│   │   ├── config.py            # YAML config loader, data-dir path resolution
+│   │   ├── platform.py          # OS family, run mode (desktop/rescue), data dir
+│   │   ├── i18n.py              # Backend message catalogue (ru/en)
 │   │   └── logger.py            # Logging setup
+│   ├── demo/
+│   │   └── scenarios.py         # Demo scenarios ("sick PCs") + sandbox
 │   ├── diagnostics/             # Hardware/software info collection
 │   │   ├── cpu.py               # /proc/cpuinfo + sensors
 │   │   ├── memory.py            # /proc/meminfo + dmidecode
@@ -56,6 +60,7 @@ calcoc/
 │   │   ├── rag.py               # Knowledge base retrieval
 │   │   └── prompts.py           # System/context prompts
 │   ├── repair/                  # Auto-fix modules
+│   │   ├── executor.py          # THE repair path: safety → backup → action → journal
 │   │   ├── filesystem.py        # e2fsck, ntfsfix
 │   │   ├── bootloader.py        # GRUB/BCD/MBR repair
 │   │   ├── registry.py          # Offline Windows registry
@@ -79,6 +84,7 @@ calcoc/
 │           └── js/app.js        # Frontend logic
 ├── data/
 │   ├── components_db.json       # Hardware price database
+│   ├── demo/*.json              # Demo scenarios (snapshot + problems + sandbox files)
 │   └── knowledge/
 │       └── common_fixes.json    # RAG knowledge base
 └── tests/
@@ -87,7 +93,8 @@ calcoc/
     ├── test_rollback.py
     ├── test_diagnostics.py
     ├── test_ai_engine.py
-    └── test_telemetry.py
+    ├── test_telemetry.py
+    └── test_repair.py           # End-to-end repair pipeline via demo scenarios
 ```
 
 ## Development Setup
@@ -121,6 +128,7 @@ make lint
 |---------|-------------|
 | `make setup` | Create venv + install deps |
 | `make run` | Start web server on :8080 |
+| `make demo` | Start with a demo scenario (sandboxed repairs) |
 | `make test` | Run pytest |
 | `make lint` | Run flake8 |
 | `make build` | Build bootable ISO |
@@ -134,6 +142,9 @@ make lint
 | `OPENROUTER_API_KEY` | API key for OpenRouter cloud backend |
 | `AI_BACKEND` | Override AI backend (`llama`, `openrouter`, `none`) |
 | `APP_LANGUAGE` | UI language (`ru`, `en`) |
+| `CALCOC_MODE` | `rescue` when booted from the USB stick; default `desktop` |
+| `CALCOC_DATA_DIR` | Override the data directory (journal, backups, logs) |
+| `CALCOC_DEMO` | Start with this demo scenario id |
 
 ## Architecture Conventions
 
@@ -154,8 +165,18 @@ Every repair action has a risk level defined in `config/safety_rules.yaml`:
 - **red** — risky changes, expert mode or elevated permissions needed
 - **black** — blocked by default (e.g. BIOS flash), expert mode only
 
+### Run modes
+- **desktop** — the app runs inside a live OS (Linux, Windows planned). Only actions safe on a running system.
+- **rescue** — booted from the USB stick; offline repairs (fsck, bootloader, registry) belong here.
+- **demo** — a scenario from `data/demo` replaces the real machine; repairs act on a sandbox under the data dir.
+
+### Repair pipeline
+`RepairExecutor.execute()` (`src/repair/executor.py`) is the only entry point for modifications:
+safety check → confirmation → backup → handler → journal entry. Handler arguments come from
+server-side `Problem.fix_params`, never from the client. New repair actions are added as handlers there.
+
 ### Rollback
-All modifications are journaled in SQLite (`src/rollback/journal.py`). Before any file/disk change, a backup is created in the USB data partition. Operations can be undone via the journal.
+All modifications are journaled in SQLite (`src/rollback/journal.py`). Before any change a backup is created in the data directory. Each journal entry stores a JSON rollback recipe executed in Python by `BackupManager.rollback_entry()` — never a shell command.
 
 ### Web API Patterns
 All API routes are in `src/web/routes.py`:
@@ -165,6 +186,10 @@ All API routes are in `src/web/routes.py`:
 - `POST /api/chat/stream` — AI chat (SSE streaming)
 - `POST /api/safety/check` — check action risk level
 - `POST /api/upgrade` — upgrade recommendations
+- `POST /api/repair` — fix a problem by id (`dry_run` for the plan, `confirm` to execute)
+- `GET /api/journal`, `POST /api/journal/<id>/rollback` — operation journal and undo
+- `POST /api/backups/purge` — delete stored backups
+- `GET/POST /api/demo` — list / select demo scenarios
 - `GET /api/status` — current session status
 - `GET/POST /api/settings` — view/update settings
 
@@ -194,7 +219,7 @@ All API routes are in `src/web/routes.py`:
 ## Working Guidelines
 
 - Read existing code before modifying it.
-- Every repair action must go through `SafetyClassifier.check()` before execution.
+- Every repair action must go through `RepairExecutor` (which calls `SafetyClassifier.check()`); never call repair modules directly from routes or AI code.
 - Every destructive operation must create a backup via `BackupManager` first.
 - Never recommend BIOS flashing without explicit user consent + backup.
 - All user-facing text should support Russian (primary) and English.
